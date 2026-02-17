@@ -78,12 +78,12 @@ class DashboardUI {
             const color = type === 'success' ? '#10b981' : (type === 'error' ? '#ef4444' : '#00eaff');
 
             toast.innerHTML = `
-                <div style="display: flex; align-items: center; gap: 15px; padding: 15px 25px; background: rgba(15, 23, 42, 0.9); border: 1px solid ${color}; border-radius: 12px; backdrop-filter: blur(15px); box-shadow: 0 10px 40px rgba(0,0,0,0.5); border-left: 5px solid ${color};">
+                <div style="display: flex; align-items: center; gap: 15px; padding: 15px 25px; background: var(--theme-panel-bg); border: 1px solid ${color}; border-radius: 12px; backdrop-filter: blur(15px); box-shadow: var(--theme-glow); border-left: 5px solid ${color};">
                     <i class="fa-solid ${icon}" style="color: ${color}; font-size: 1.2rem;"></i>
-                    <span style="color: #fff; font-weight: 700;">${message}</span>
+                    <span style="color: var(--text-primary); font-weight: 700;">${message}</span>
                 </div>
             `;
-            toast.style.cssText = `position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(100px); z-index: 10000; transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); opacity: 0;`;
+            toast.style.cssText = `position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(100px); z-index: 40000; transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); opacity: 0;`;
             document.body.appendChild(toast);
 
             // Trigger animation
@@ -416,17 +416,32 @@ class DashboardUI {
                         }
                     }
 
+                    // Fetch last 2 appointments for history
+                    const patientAppointments = (syncManager.data.appointments || [])
+                        .filter(a => a.patientId === p.id)
+                        .sort((a, b) => new Date(b.datetime) - new Date(a.datetime))
+                        .slice(0, 2);
+
+                    const historyHTML = patientAppointments.length > 0
+                        ? `<div style="margin-top: 5px; border-top: 1px inset rgba(255,255,255,0.1); padding-top: 5px;">
+                             <span style="color: #94a3b8; font-size: 0.75rem;"><i class="fa-solid fa-history"></i> السجل: </span>
+                             ${patientAppointments.map(a => `<span style="background: rgba(0, 234, 255, 0.05); color: #00eaff; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; margin-right: 5px;">${a.service} (${a.datetime.split('T')[0]})</span>`).join('')}
+                           </div>`
+                        : '';
+
                     return `
-                    <div class="suggestion-item" data-id="${p.id}" style="padding: 15px 20px;">
+                    <div class="suggestion-item" data-id="${p.id}" style="padding: 15px 20px; border-bottom: 1px solid rgba(255,255,255,0.05);">
                         <div style="display: flex; flex-direction: column; gap: 4px; flex: 1;">
                             <span style="font-weight: 700; color: #fff; font-size: 1rem;">${p.name} <small style="color:var(--accent-blue); opacity:0.8;">#${p.patientCode || '---'}</small></span>
+                            <div style="color: #f59e0b; font-size: 0.8rem; font-weight: 600;"><i class="fa-solid fa-comment-dots"></i> الملاحظات: ${p.permanentNotes || 'بدون ملاحظات'}</div>
                             ${matchInfo ? `<div style="margin-top: -2px;">${matchInfo}</div>` : ''}
                             <div style="display: flex; gap: 15px; align-items: center; opacity: 0.6; font-size: 0.8rem;">
                                 <span><i class="fa-solid fa-phone" style="font-size: 0.7rem;"></i> ${p.phone || '--'}</span>
-                                <span><i class="fa-solid fa-clock-rotate-left" style="font-size: 0.7rem;"></i> الزيارات: ${p.visits ? p.visits.length : 0}</span>
+                                <span><i class="fa-solid fa-calendar-day" style="font-size: 0.7rem;"></i> العمر: ${p.age || '--'}</span>
                             </div>
+                            ${historyHTML}
                         </div>
-                        <div style="display: flex; gap: 10px;">
+                        <div style="display: flex; gap: 10px; align-items: center;">
                             <button class="btn-edit-tool quick-action-btn" data-action="prescribe" data-id="${p.id}" title="روشتة جديدة" style="background: rgba(0, 234, 255, 0.1); border-color: var(--accent-blue);">
                                 <i class="fa-solid fa-file-prescription"></i>
                             </button>
@@ -490,14 +505,37 @@ class DashboardUI {
 
                 const patients = syncManager.getPatients().filter(p => p.name.includes(query));
                 if (patients.length > 0) {
-                    this.elements.appointmentSuggestions.innerHTML = patients.map(p => `
-                        <div class="suggestion-item" data-id="${p.id}" data-name="${p.name}">
-                            <div style="display:flex; flex-direction:column;">
-                                <span style="font-weight:bold;">${p.name} <small style="color:var(--accent-blue);">#${p.patientCode || '---'}</small></span>
-                                <small style="opacity:0.6">${p.phone || '--'}</small>
+                    this.elements.appointmentSuggestions.innerHTML = patients.map(p => {
+                        // Fetch last 2 appointments for history
+                        const patientAppointments = (syncManager.data.appointments || [])
+                            .filter(a => a.patientId === p.id)
+                            .sort((a, b) => new Date(b.datetime) - new Date(a.datetime))
+                            .slice(0, 2);
+
+                        const historyHTML = patientAppointments.length > 0
+                            ? `<div style="margin-top: 5px; border-top: 1px inset rgba(255,255,255,0.1); padding-top: 3px;">
+                                 <span style="color: #94a3b8; font-size: 0.7rem;">السجل: </span>
+                                 ${patientAppointments.map(a => `<span style="background: rgba(0, 234, 255, 0.05); color: #00eaff; padding: 1px 4px; border-radius: 4px; font-size: 0.65rem; margin-right: 3px;">${a.service}</span>`).join('')}
+                               </div>`
+                            : '';
+
+                        return `
+                            <div class="suggestion-item" data-id="${p.id}" data-name="${p.name}" style="padding: 10px 15px; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                                <div style="display:flex; flex-direction:column; width: 100%;">
+                                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                                        <span style="font-weight:bold; color: #fff;">${p.name}</span>
+                                        <small style="color:var(--accent-blue);">#${p.patientCode || '---'}</small>
+                                    </div>
+                                    <div style="color: #f59e0b; font-size: 0.75rem; margin-top: 2px;"><i class="fa-solid fa-comment-dots"></i> ${p.permanentNotes || 'لا توجد ملاحظات'}</div>
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 2px; opacity: 0.7; font-size: 0.7rem;">
+                                        <span><i class="fa-solid fa-phone"></i> ${p.phone || '--'}</span>
+                                        <span><i class="fa-solid fa-calendar-day"></i> ${p.age || '--'}</span>
+                                    </div>
+                                    ${historyHTML}
+                                </div>
                             </div>
-                        </div>
-                    `).join('');
+                        `;
+                    }).join('');
                     this.elements.appointmentSuggestions.style.display = 'block';
 
                     // Add click listeners
@@ -592,51 +630,69 @@ class DashboardUI {
                 patientModal.style.display = 'flex';
                 patientForm.reset();
                 delete patientForm.dataset.editId;
+                // Reset gender toggle to neutral
+                const m = document.getElementById('gender-male');
+                const f = document.getElementById('gender-female');
+                const g = document.getElementById('book-gender');
+                if (m && f && g) {
+                    m.style.background = 'transparent'; m.style.color = '#94a3b8';
+                    f.style.background = 'transparent'; f.style.color = '#94a3b8';
+                    g.value = '';
+                }
             };
+        }
+
+        // Gender Toggle Logic (Add Patient)
+        const maleBtn = document.getElementById('gender-male');
+        const femaleBtn = document.getElementById('gender-female');
+        const genderInput = document.getElementById('book-gender');
+        if (maleBtn && femaleBtn && genderInput) {
+            const setGender = (isMale) => {
+                maleBtn.style.background = isMale ? 'var(--theme-accent)' : 'transparent';
+                maleBtn.style.color = isMale ? 'var(--theme-text-accent)' : 'var(--text-secondary)';
+                femaleBtn.style.background = isMale ? 'transparent' : 'var(--theme-accent)';
+                femaleBtn.style.color = isMale ? 'var(--text-secondary)' : 'var(--theme-text-accent)';
+                genderInput.value = isMale ? 'ذكر' : 'أنثى';
+
+                // Add border highlight to active
+                maleBtn.style.border = isMale ? '2px solid #fff' : 'none';
+                femaleBtn.style.border = isMale ? 'none' : '2px solid #fff';
+            };
+            maleBtn.onclick = () => setGender(true);
+            femaleBtn.onclick = () => setGender(false);
         }
 
         const closePatientBtn = document.getElementById('btn-close-booking');
         if (closePatientBtn) closePatientBtn.onclick = () => patientModal.style.display = 'none';
 
-        // Triple Input Logic (Add) - Now Quadruple
-        const addInputs = [
-            document.getElementById('book-name-1'),
-            document.getElementById('book-name-2'),
-            document.getElementById('book-name-3'),
-            document.getElementById('book-name-4')
-        ];
-        addInputs.forEach((input, idx) => {
-            if (!input) return;
-            input.onkeydown = (e) => {
-                if (e.key === ' ' && input.value.trim().length > 0) {
-                    e.preventDefault();
-                    if (addInputs[idx + 1]) addInputs[idx + 1].focus();
-                } else if (e.key === 'Backspace' && input.value.length === 0) {
-                    if (addInputs[idx - 1]) addInputs[idx - 1].focus();
-                }
-            };
-        });
+
 
         if (patientForm) {
-            patientForm.onsubmit = (e) => {
-                e.preventDefault();
-                const n1 = document.getElementById('book-name-1').value.trim();
-                const n2 = document.getElementById('book-name-2').value.trim();
-                const n3 = document.getElementById('book-name-3').value.trim();
-                const n4 = document.getElementById('book-name-4').value.trim();
+            const savePatientAction = () => {
+                const fullName = document.getElementById('book-patient-name').value.trim();
+                const ageNum = document.getElementById('book-age-number').value || 0;
+                const ageUnit = document.getElementById('book-age-unit').value || 'سنة';
 
-                if (!n1 || !n2 || !n3) {
+                if (!fullName) {
                     window.soundManager.playError();
-                    showNeuroModal('اسم ناقص', 'يرجى إدخال 3 أرقام على الأقل من الاسم لضمان الدقة.', null, false);
-                    return;
+                    showNeuroModal('بيانات ناقصة', 'يرجى إدخال اسم المريض بالكامل.', null, false);
+                    return null;
                 }
 
-                const fullName = [n1, n2, n3, n4].filter(part => part.length > 0).join(" ");
+                const genderVal = document.getElementById('book-gender').value;
+                if (!genderVal) {
+                    window.soundManager.playError();
+                    showNeuroModal('تنبيه', 'يرجى اختيار جنس المريض (ذكر أو أنثى).', null, false);
+                    return null;
+                }
+
+                // Construct Age String (New Engineering Standard)
+                const ageStr = `${ageNum} ${ageUnit}`;
 
                 const patientData = {
                     name: fullName,
-                    age: document.getElementById('book-age').value,
-                    gender: document.getElementById('book-gender').value,
+                    age: ageStr,
+                    gender: genderVal,
                     phone: document.getElementById('book-phone').value.trim(),
                     allergies: document.getElementById('book-allergies').value,
                     permanentNotes: document.getElementById('book-notes').value
@@ -645,35 +701,86 @@ class DashboardUI {
                 if (!patientData.phone || patientData.phone.length < 7) {
                     window.soundManager.playError();
                     showNeuroModal('خطأ التحقق', 'يرجى إدخال رقم هاتف صحيح (7 أرقام على الأقل).', null, false);
-                    return;
+                    return null;
                 }
 
                 if (patientForm.dataset.editId) {
                     patientData.id = patientForm.dataset.editId;
                 }
 
-                // Validate Age (1-2 digits only)
-                const ageVal = document.getElementById('book-age').value;
-                if (!ageVal || !/^\d{1,2}$/.test(ageVal)) {
-                    window.soundManager.playError();
-                    showNeuroModal('خطأ في العمر', 'يرجى إدخال العمر بشكل صحيح (رقمين كحد أقصى، ولا يسمح بالحروف).', null, false);
-                    return;
-                }
 
-                // Use upsertPatient for both add and update (handles ID generation if new)
                 try {
-                    syncManager.upsertPatient(patientData);
-                    patientModal.style.display = 'none';
+                    const result = syncManager.upsertPatient(patientData);
                     this.updateStats();
                     this.renderPatientsManagement();
-                    window.soundManager.playSuccess();
-                    showNeuroModal('تم الحفظ', 'تم حفظ بيانات المريض بنجاح.', null, false);
+                    return result;
                 } catch (err) {
                     window.soundManager.playError();
                     console.error("Error saving patient:", err);
                     alert("حدث خطأ أثناء حفظ البيانات. يرجى المحاولة مرة أخرى.");
+                    return null;
                 }
             };
+
+            patientForm.onsubmit = (e) => {
+                e.preventDefault();
+                if (savePatientAction()) {
+                    patientModal.style.display = 'none';
+                    window.soundManager.playSuccess();
+                    showNeuroModal('تم الحفظ', 'تم حفظ بيانات المريض بنجاح.', null, false);
+                }
+            };
+
+            const saveAndBookBtn = document.getElementById('btn-save-and-book');
+            if (saveAndBookBtn) {
+                saveAndBookBtn.onclick = () => {
+                    const savedPatient = savePatientAction();
+                    if (savedPatient) {
+                        patientModal.style.display = 'none';
+                        window.soundManager.playSuccess();
+
+                        // Open Appointment Modal
+                        const appointmentModal = document.getElementById('appointment-booking-modal');
+                        if (appointmentModal) {
+                            // We use the shared openModal if available, or just set display
+                            appointmentModal.style.display = 'flex';
+
+                            // Auto-fill patient info
+                            const nameInput = document.getElementById('book-patient-name-appointment');
+                            if (nameInput) {
+                                nameInput.value = savedPatient.name;
+                                nameInput.dataset.selectedId = savedPatient.id;
+                                // Trigger any search/suggestions hide logic if needed
+                                const suggestions = document.getElementById('appointment-name-suggestions');
+                                if (suggestions) suggestions.style.display = 'none';
+                            }
+
+                            // Auto-fill default datetime
+                            const now = new Date();
+                            const dSel = document.getElementById('book-day-appointment');
+                            const mSel = document.getElementById('book-month-appointment');
+                            const ySel = document.getElementById('book-year-appointment');
+                            if (dSel && mSel && ySel) {
+                                dSel.value = String(now.getDate()).padStart(2, '0');
+                                mSel.value = String(now.getMonth() + 1).padStart(2, '0');
+                                ySel.value = now.getFullYear();
+                            }
+
+                            let hours = now.getHours();
+                            const mins = now.getMinutes();
+                            const ampm = hours >= 12 ? 'PM' : 'AM';
+                            hours = hours % 12 || 12;
+
+                            const hInput = document.getElementById('book-hour-appointment');
+                            const mInput = document.getElementById('book-minute-appointment');
+                            const ampmInput = document.getElementById('book-ampm-appointment');
+                            if (hInput) hInput.value = hours;
+                            if (mInput) mInput.value = mins;
+                            if (ampmInput) ampmInput.value = ampm;
+                        }
+                    }
+                };
+            }
         }
 
         const expenseBtn = document.getElementById('btn-add-expense');
@@ -989,8 +1096,38 @@ class DashboardUI {
         const appointments = syncManager.getAppointmentsByClinic();
         if (!this.tables.allAppointments) return;
 
+        // Initialize Archive Controls (Once)
+        const archiveFilter = document.getElementById('appointment-archive-filter');
+        const resetArchiveBtn = document.getElementById('btn-reset-archive');
+
+        if (archiveFilter && !archiveFilter.dataset.initialized) {
+            // Set default to current month
+            const now = new Date();
+            const currentMonth = now.toISOString().slice(0, 7); // YYYY-MM
+            archiveFilter.value = currentMonth;
+
+            // Event Listeners
+            archiveFilter.addEventListener('change', () => this.renderAllAppointments());
+
+            if (resetArchiveBtn) {
+                resetArchiveBtn.addEventListener('click', () => {
+                    archiveFilter.value = currentMonth;
+                    this.renderAllAppointments();
+                });
+            }
+
+            archiveFilter.dataset.initialized = 'true';
+        }
+
+        // Apply Filter
+        let filteredAppointments = appointments;
+        if (archiveFilter && archiveFilter.value) {
+            const selectedMonth = archiveFilter.value; // YYYY-MM
+            filteredAppointments = appointments.filter(app => app.datetime.startsWith(selectedMonth));
+        }
+
         // Sort by date desc
-        const sortedList = appointments.slice().sort((a, b) => new Date(b.datetime) - new Date(a.datetime));
+        const sortedList = filteredAppointments.slice().sort((a, b) => new Date(b.datetime) - new Date(a.datetime));
 
         this.tables.allAppointments.innerHTML = sortedList.map(app => {
             const remaining = parseFloat(app.cost || 0) - parseFloat(app.paid || 0);
@@ -1046,7 +1183,7 @@ class DashboardUI {
         if (!patientTableBody) return;
 
         patientTableBody.innerHTML = patients.map(p => `
-            <tr onclick="window.patientFileUI.open('${p.id}')" style="cursor:pointer">
+            <tr>
                 <td style="color: var(--accent-blue); font-weight: 800; font-family: 'Inter';">#${p.patientCode || '10x'}#</td>
                 <td>
                     <div style="display: flex; align-items: center; gap: 12px;">
@@ -1061,7 +1198,7 @@ class DashboardUI {
                 <td style="color: var(--accent-blue); font-size: 0.9rem;">${p.visits && p.visits.length > 0 ? p.visits[0].date : 'بدون زيارات'}</td>
                 <td>
                     <div style="display: flex; gap: 8px;">
-                        <button class="btn-edit-tool" onclick="event.stopPropagation(); dashboardUI.editPatient('${p.id}')" title="تعديل البيانات">
+                        <button class="btn-edit-tool" onclick="event.stopPropagation(); window.patientFileUI.open('${p.id}')" title="تعديل البيانات">
                             <i class="fa-solid fa-pen"></i>
                         </button>
                         <button class="btn-neuro" onclick="event.stopPropagation(); window.patientFileUI.open('${p.id}')" style="padding: 8px 15px; font-size: 0.75rem; animation: none; box-shadow: none;">
@@ -1191,6 +1328,11 @@ class DashboardUI {
     }
 
     deleteAppointment(id) {
+        if (!window.authManager.isAdmin()) {
+            window.soundManager.playError();
+            window.showNeuroToast('عفواً، صلاحية حذف المواعيد للمدير فقط.', 'error');
+            return;
+        }
         window.soundManager.playDeleteWarning();
         showNeuroModal('حذف الموعد', 'هل أنت متأكد من حذف هذا الموعد نهائياً؟', () => {
             appointmentManager.deleteAppointment(id);
@@ -1202,16 +1344,7 @@ class DashboardUI {
         }, true);
     }
 
-    deleteTransaction(id) {
-        window.soundManager.playBuzz();
-        showNeuroModal('حذف', 'هل تريد حذف هذا القيد المالي نهائياً؟', () => {
-            syncManager.data.finances.transactions = syncManager.data.finances.transactions.filter(t => t.id !== id);
-            syncManager.saveLocal();
-            this.renderFinanceTable();
-            this.updateStats();
-            window.soundManager.playSuccess();
-        });
-    }
+
 
     initSettingsLogic() {
         // logic removed as per user request to hide these settings
@@ -1225,6 +1358,11 @@ class DashboardUI {
     }
 
     deleteUser(userId) {
+        if (!window.authManager.isAdmin()) {
+            window.soundManager.playError();
+            window.showNeuroToast('عفواً، صلاحية حذف الموظفين للمدير فقط.', 'error');
+            return;
+        }
         window.soundManager.playDeleteWarning();
         showNeuroModal(
             'حذف الموظف',
@@ -1240,6 +1378,11 @@ class DashboardUI {
     }
 
     deletePatientDirect(id) {
+        if (!window.authManager.isAdmin()) {
+            window.soundManager.playError();
+            window.showNeuroToast('عفواً، صلاحية حذف المرضى للمدير فقط.', 'error');
+            return;
+        }
         window.soundManager.playDeleteWarning();
         showNeuroModal('تحذير نهائي', 'هل أنت متأكد من حذف هذا المريض؟ سيؤدي ذلك لمسح كافة بياناته الطبية وحساباته فوراً.', () => {
             syncManager.deletePatient(id);
@@ -1258,8 +1401,18 @@ class DashboardUI {
 
         if (!this.tables.todayAppointments) return;
 
+        // Fetch latest patients data
+        const allPatients = window.syncManager.getPatients();
+
         this.tables.todayAppointments.innerHTML = todaysList.map(app => {
             const time = new Date(app.datetime).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
+
+            // Get latest patient name
+            let currentPatientName = app.patientName;
+            if (app.patientId) {
+                const patient = allPatients.find(p => p.id === app.patientId);
+                if (patient) currentPatientName = patient.name;
+            }
 
             // Queue Action Calculation
             let queueActionBtn = '';
@@ -1271,21 +1424,21 @@ class DashboardUI {
             if (!queueItem) {
                 // Not in queue -> Show Check-in
                 queueActionBtn = `
-                    <button class="btn-edit-tool" onclick="event.stopPropagation(); window.dashboardUI.handleQueueAction('${app.id}', '${app.patientId}', 'check-in', '${app.patientName}')" title="تسجيل حضور" style="color: #64748b; border: 1px solid #64748b;">
+                    <button class="btn-edit-tool" onclick="event.stopPropagation(); window.dashboardUI.handleQueueAction('${app.id}', '${app.patientId}', 'check-in', '${currentPatientName}')" title="تسجيل حضور" style="color: #64748b; border: 1px solid #64748b;">
                          <i class="fa-solid fa-person-walking-arrow-right"></i>
                     </button>
                 `;
             } else if (queueItem.status === 'waiting') {
                 // Waiting -> Call Patient
                 queueActionBtn = `
-                    <button class="btn-edit-tool" onclick="event.stopPropagation(); window.dashboardUI.handleQueueAction('${app.id}', '${app.patientId}', 'call', '${app.patientName}', '${queueItem.id}')" title="دخول المريض" style="color: #f59e0b; border-color: #f59e0b; background: rgba(245, 158, 11, 0.1);">
+                    <button class="btn-edit-tool" onclick="event.stopPropagation(); window.dashboardUI.handleQueueAction('${app.id}', '${app.patientId}', 'call', '${currentPatientName}', '${queueItem.id}')" title="دخول المريض" style="color: #f59e0b; border-color: #f59e0b; background: rgba(245, 158, 11, 0.1);">
                          <i class="fa-solid fa-bullhorn"></i>
                     </button>
                 `;
             } else if (queueItem.status === 'in-progress') {
                 // In Progress -> Complete
                 queueActionBtn = `
-                    <button class="btn-edit-tool" onclick="event.stopPropagation(); window.dashboardUI.handleQueueAction('${app.id}', '${app.patientId}', 'complete', '${app.patientName}', '${queueItem.id}')" title="إنهاء الزيارة" style="color: #10b981; border-color: #10b981; background: rgba(16, 185, 129, 0.1);">
+                    <button class="btn-edit-tool" onclick="event.stopPropagation(); window.dashboardUI.handleQueueAction('${app.id}', '${app.patientId}', 'complete', '${currentPatientName}', '${queueItem.id}')" title="إنهاء الزيارة" style="color: #10b981; border-color: #10b981; background: rgba(16, 185, 129, 0.1);">
                          <i class="fa-solid fa-check"></i>
                     </button>
                 `;
@@ -1296,12 +1449,12 @@ class DashboardUI {
             return `
             <tr>
                 <td>${time}</td>
-                <td><strong>${app.patientName}</strong></td>
+                <td><strong>${currentPatientName}</strong></td>
                 <td>${app.service}</td>
                 <td>
                     <div style="display:flex; gap:5px;">
                         ${queueActionBtn}
-                        <button class="btn-edit-tool" onclick="window.patientFileUI.open('${app.patientId}')">
+                        <button class="btn-edit-tool" onclick="event.stopPropagation(); window.patientFileUI.open('${app.patientId}')">
                              <i class="fa-solid fa-folder-open"></i>
                         </button>
                     </div>
@@ -1431,13 +1584,20 @@ class DashboardUI {
     }
 
     deleteTransaction(id) {
-        if (confirm('هل أنت متأكد من حذف هذه العملية المالية؟ لا يمكن التراجع.')) {
+        if (!window.authManager.isAdmin()) {
+            window.soundManager.playError();
+            window.showNeuroToast('عفواً، صلاحية حذف المعاملات المالية للمدير فقط.', 'error');
+            return;
+        }
+
+        window.soundManager.playDeleteWarning();
+        showNeuroModal('حذف', 'هل أنت متأكد من حذف هذه العملية المالية؟ لا يمكن التراجع.', () => {
             syncManager.data.finances.transactions = syncManager.data.finances.transactions.filter(t => t.id !== id);
             syncManager.saveLocal();
-
             this.renderFinanceTable();
             this.updateStats();
-        }
+            window.soundManager.playSuccess();
+        }, true);
     }
 
     initUsersAndLogs() {
@@ -1447,24 +1607,24 @@ class DashboardUI {
             btnAdd.onclick = () => {
                 const modalHTML = `
                     <div style="text-align: right;">
-                        <div class="form-group" style="margin-bottom: 15px;">
-                            <label style="display: block; margin-bottom: 8px; color: #94a3b8;">الاسم الكامل</label>
-                            <input type="text" id="user-new-name" class="neuro-input" style="width:100%" placeholder="مثال: د. أحمد خليل أو م. سارة">
+                        <div class="form-group" style="margin-bottom: 20px;">
+                            <label style="display: block; margin-bottom: 8px; color: var(--text-primary); font-weight: 800;">الاسم الكامل للموظف</label>
+                            <input type="text" id="user-new-name" class="neuro-input" style="width:100%; padding: 12px;" placeholder="مثال: د. أحمد خليل">
                         </div>
-                        <div class="form-group" style="margin-bottom: 15px;">
-                            <label style="display: block; margin-bottom: 8px; color: #94a3b8;">اسم المستخدم</label>
-                            <input type="text" id="user-new-username" class="neuro-input" style="width:100%" placeholder="للدخول به">
+                        <div class="form-group" style="margin-bottom: 20px;">
+                            <label style="display: block; margin-bottom: 8px; color: var(--text-primary); font-weight: 800;">اسم المستخدم (Login)</label>
+                            <input type="text" id="user-new-username" class="neuro-input" style="width:100%; padding: 12px;" placeholder="اسم الدخول">
                         </div>
-                        <div class="form-group" style="margin-bottom: 15px;">
-                            <label style="display: block; margin-bottom: 8px; color: #94a3b8;">كلمة المرور</label>
-                            <input type="password" id="user-new-password" class="neuro-input" style="width:100%" placeholder="1234">
+                        <div class="form-group" style="margin-bottom: 20px;">
+                            <label style="display: block; margin-bottom: 8px; color: var(--text-primary); font-weight: 800;">كلمة المرور</label>
+                            <input type="password" id="user-new-password" class="neuro-input" style="width:100%; padding: 12px;" placeholder="****">
                         </div>
-                        <div class="form-group" style="margin-bottom: 15px;">
-                            <label style="display: block; margin-bottom: 8px; color: #94a3b8;">الصلاحية</label>
-                            <select id="user-new-role" class="neuro-input" style="width:100%; height: 45px;">
-                                <option value="doctor">طبيب (ملفات طبية + روشتات)</option>
-                                <option value="secretary">سكرتارية (مواعيد + حسابات)</option>
-                                <option value="admin">مدير (كل الصلاحيات)</option>
+                        <div class="form-group" style="margin-bottom: 20px;">
+                            <label style="display: block; margin-bottom: 8px; color: var(--text-primary); font-weight: 800;">مستوى الصلاحية</label>
+                            <select id="user-new-role" class="neuro-input" style="width:100%; height: 50px; padding: 0 15px;">
+                                <option value="doctor">طبيب (صلاحية طبية كاملة)</option>
+                                <option value="secretary">سكرتارية (إدارة مواعيد وحسابات)</option>
+                                <option value="admin">مدير (تحكم شامل في النظام)</option>
                             </select>
                         </div>
                     </div>
@@ -1790,17 +1950,17 @@ class DashboardUI {
 
         settingsContainer.innerHTML = `
             <div style="padding: 20px; direction: rtl; text-align: right;">
-                <h2 style="color: #fff; margin-bottom: 30px; font-size: 1.8rem;">
+                <h2 style="color: var(--text-primary); margin-bottom: 30px; font-size: 1.8rem; font-weight: 900;">
                     <i class="fa-solid fa-gear"></i> الإعدادات
                 </h2>
 
                 <!-- Premium Health Status Card -->
-                <div style="background: rgba(16, 185, 129, 0.08); border: 2px solid rgba(16, 185, 129, 0.3); border-radius: 20px; padding: 25px; margin-bottom: 30px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 10px 30px rgba(0,0,0,0.2);">
+                <div style="background: rgba(16, 185, 129, 0.12); border: 2px solid rgba(16, 185, 129, 0.4); border-radius: 20px; padding: 25px; margin-bottom: 30px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 10px 30px rgba(0,0,0,0.05); color: var(--text-primary);">
                     <div>
-                        <h3 style="color: #fff; margin: 0 0 8px 0; font-size: 1.3rem;">حالة أمان النظام والبيانات</h3>
-                        <p style="color: #cbd5e1; font-size: 0.95rem; margin: 0; line-height: 1.6;">تم تفعيل **صمامات الأمان** ضد الحذف المفاجئ، ونظام **الرفع الذكي** لزيادة السرعة 10 أضعاف.</p>
+                        <h3 style="color: var(--text-primary); margin: 0 0 8px 0; font-size: 1.3rem; font-weight: 800;">حالة أمان النظام والبيانات</h3>
+                        <p style="color: var(--text-primary); font-size: 1rem; margin: 0; line-height: 1.6; opacity: 0.9;">تم تفعيل <strong style="text-decoration: underline;">صمامات الأمان</strong> ضد الحذف المفاجئ، ونظام <strong style="text-decoration: underline;">الرفع الذكي</strong> لزيادة السرعة 10 أضعاف.</p>
                     </div>
-                    <div style="background: rgba(15, 23, 42, 0.5); padding: 12px 20px; border-radius: 12px; border: 1px solid rgba(16, 185, 129, 0.5); font-weight: 800; font-size: 1.1rem; min-width: 250px; text-align: center;">
+                    <div style="background: rgba(15, 23, 42, 0.2); padding: 12px 20px; border-radius: 12px; border: 1px solid rgba(16, 185, 129, 0.6); font-weight: 900; font-size: 1.1rem; min-width: 250px; text-align: center; color: #10b981;">
                         ${healthStatus}
                     </div>
                 </div>
@@ -1809,10 +1969,10 @@ class DashboardUI {
                 ${isAdmin ? window.clinicManager.renderClinicsManagement() : ''}
 
                 <!-- Users Management Section -->
-                <div style="background: rgba(30, 41, 59, 0.5); border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; padding: 30px; margin-top: 20px;">
+                <div style="background: var(--bg-surface); border: 1px solid var(--glass-border); border-radius: 24px; padding: 30px; margin-top: 25px; box-shadow: 0 4px 20px rgba(0,0,0,0.03);">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px;">
-                        <h2 style="color: #fff; font-size: 1.5rem; margin: 0;">
-                            <i class="fa-solid fa-users-gear"></i> إدارة الموظفين
+                        <h2 style="color: var(--text-primary); font-size: 1.6rem; margin: 0; font-weight: 900;">
+                            <i class="fa-solid fa-users-gear"></i> إدارة الموظفين والصلاحيات
                         </h2>
                         ${isAdmin ? `
                             <button onclick="window.dashboardUI.openAddUserModal()" class="btn-neuro" style="background: #10b981; border-color: #10b981;">
@@ -1824,92 +1984,117 @@ class DashboardUI {
                 </div>
 
                 <!-- Backup & Security Section -->
-                <div style="background: rgba(30, 41, 59, 0.5); border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; padding: 30px; margin-top: 20px;">
-                    <h2 style="color: #fff; font-size: 1.5rem; margin-bottom: 25px;">
-                        <i class="fa-solid fa-database"></i> النسخ الاحتياطي والأمان
+                <div style="background: var(--bg-surface); border: 1px solid var(--glass-border); border-radius: 24px; padding: 30px; margin-top: 25px; box-shadow: 0 4px 20px rgba(0,0,0,0.03);">
+                    <h2 style="color: var(--text-primary); font-size: 1.6rem; margin-bottom: 25px; font-weight: 900;">
+                        <i class="fa-solid fa-shield-halved"></i> النسخ الاحتياطي وأمن المعلومات
                     </h2>
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-                        <div style="background: rgba(0,0,0,0.2); padding: 20px; border-radius: 15px; border: 1px solid rgba(255,255,255,0.05);">
-                            <h4 style="color: #00eaff; margin-bottom: 10px;">نسخة كاملة (JSON)</h4>
-                            <p style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 15px;">يحتوي على كافة المرضى، المواعيد، الحسابات والإعدادات.</p>
-                            <button onclick="window.dashboardUI.exportFullBackup()" class="btn-neuro" style="width: 100%; background: rgba(0, 234, 255, 0.1); color: #00eaff;">
-                                <i class="fa-solid fa-download"></i> تحميل نسخة شاملة
+                        <div style="background: var(--bg-deep); padding: 25px; border-radius: 18px; border: 2px solid var(--glass-border);">
+                            <h4 style="color: var(--text-primary); margin-bottom: 12px; font-weight: 900; font-size: 1.1rem;">نسخة كاملة (JSON)</h4>
+                            <p style="color: var(--text-secondary); font-size: 0.95rem; margin-bottom: 20px; font-weight: 600;">يحتوي على كافة المرضى، المواعيد، الحسابات والإعدادات بشكل مشفر.</p>
+                            <button onclick="window.dashboardUI.exportFullBackup()" class="btn-neuro" style="width: 100%; background: var(--accent-primary); color: #fff; border-radius: 12px; font-weight: 800; padding: 12px;">
+                                <i class="fa-solid fa-cloud-arrow-down"></i> تحميل نسخة شاملة
                             </button>
                         </div>
-                        <div style="background: rgba(0,0,0,0.2); padding: 20px; border-radius: 15px; border: 1px solid rgba(255,255,255,0.05);">
-                            <h4 style="color: #10b981; margin-bottom: 10px;">سجل المرضى (CSV)</h4>
-                            <p style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 15px;">تصدير قائمة المرضى كملف Excel لسهولة القراءة والبحث.</p>
-                            <button onclick="window.dashboardUI.exportPatientsCSV()" class="btn-neuro" style="width: 100%; background: rgba(16, 185, 129, 0.1); color: #10b981; border-color: #10b981;">
-                                <i class="fa-solid fa-file-csv"></i> تصدير للميكروسوفت إكسيل
+                        <div style="background: var(--bg-deep); padding: 25px; border-radius: 18px; border: 2px solid var(--glass-border);">
+                            <h4 style="color: #10b981; margin-bottom: 12px; font-weight: 900; font-size: 1.1rem;">سجل المرضى (Excel)</h4>
+                            <p style="color: var(--text-secondary); font-size: 0.95rem; margin-bottom: 20px; font-weight: 600;">تصدير قائمة المرضى كملف CSV لسهولة البحث والطباعة الخارجية.</p>
+                            <button onclick="window.dashboardUI.exportPatientsCSV()" class="btn-neuro" style="width: 100%; background: #059669; color: #fff; border-color: #059669; border-radius: 12px; font-weight: 800; padding: 12px;">
+                                <i class="fa-solid fa-file-excel"></i> تصدير للميكروسوفت إكسيل
                             </button>
                         </div>
                     </div>
                     
                     ${isAdmin ? `
-                    <div style="margin-top: 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; border-top: 1px dashed rgba(255,255,255,0.1); padding-top: 25px;">
-                        <div style="padding: 20px; border: 1px dashed rgba(245, 158, 11, 0.3); border-radius: 15px; text-align: center; background: rgba(245, 158, 11, 0.05);">
-                            <h4 style="color: #f59e0b; margin-bottom: 15px;">استعادة نسخة احتياطية (JSON)</h4>
+                    <div style="margin-top: 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; border-top: 1px dashed var(--glass-border); padding-top: 25px;">
+                        <div style="padding: 20px; border: 1px dashed rgba(245, 158, 11, 0.6); border-radius: 15px; text-align: center; background: rgba(245, 158, 11, 0.05);">
+                            <h4 style="color: #d97706; margin-bottom: 15px; font-weight: 800;">استعادة نسخة احتياطية (JSON)</h4>
                             <input type="file" id="restore-backup-input" accept=".json" style="display: none;" onchange="window.dashboardUI.handleRestoreBackup(event)">
-                            <button onclick="document.getElementById('restore-backup-input').click()" class="btn-neuro" style="background: #f59e0b; border-color: #f59e0b; color: #000; margin: 0 auto; width: 100%;">
+                            <button onclick="document.getElementById('restore-backup-input').click()" class="btn-neuro" style="background: #d97706; border-color: #d97706; color: #fff; margin: 0 auto; width: 100%; font-weight: 800;">
                                 <i class="fa-solid fa-upload"></i> رفع واستعادة JSON
                             </button>
-                            <p style="color: #ef4444; font-size: 0.7rem; margin-top: 10px;">⚠️ سيتم مسح واستبدال كافة البيانات</p>
+                            <p style="color: #ef4444; font-size: 0.8rem; margin-top: 10px; font-weight: 700;">⚠️ سيتم مسح واستبدال كافة البيانات</p>
                         </div>
 
-                        <div style="padding: 20px; border: 2px solid var(--accent-blue); border-radius: 15px; text-align: center; background: rgba(0, 234, 255, 0.05); grid-column: span 2;">
-                            <h4 style="color: var(--accent-blue); margin-bottom: 15px;"><i class="fa-solid fa-folder-tree"></i> درع الحماية التلقائي (Auto-Guardian)</h4>
-                            <p style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 20px;">اربط مجلد على جهازك وسيقوم البرنامج بحفظ نسخة احتياطية "تلقائياً" كلما قمت بتغيير بيانات أو إضافة مريض.</p>
+                        <div style="padding: 25px; border: 2px solid var(--accent-primary); border-radius: 20px; text-align: center; background: rgba(0, 234, 255, 0.04); grid-column: span 2; box-shadow: 0 5px 15px rgba(0,0,0,0.02);">
+                            <h4 style="color: var(--accent-primary); margin-bottom: 15px; font-weight: 900; font-size: 1.2rem;"><i class="fa-solid fa-folder-tree"></i> درع الحماية التلقائي (Auto-Guardian)</h4>
+                            <p style="color: var(--text-secondary); font-size: 1rem; margin-bottom: 20px; line-height: 1.5; font-weight: 600;">اربط مجلد على جهازك وسيقوم البرنامج بحفظ نسخة احتياطية "تلقائياً" كلما قمت بتغيير بيانات أو إضافة مريض.</p>
                             
-                            <div id="folder-sync-status" style="margin-bottom: 15px; font-weight: 700;">
+                            <div id="folder-sync-status" style="margin-bottom: 15px; font-weight: 800; font-size: 1.05rem;">
                                 ${window.syncManager.isAutoBackupEnabled ?
-                    '<span style="color: #10b981;"><i class="fa-solid fa-shield-check"></i> الحالة: مفعل (الحماية التلقائية تعمل)</span>' :
-                    '<span style="color: #64748b;"><i class="fa-solid fa-circle-dot"></i> الحالة: غير مفعل (اضغط للربط)</span>'}
+                    '<span style="color: #059669;"><i class="fa-solid fa-shield-check"></i> الحالة: مفعل (الحماية التلقائية تعمل)</span>' :
+                    '<span style="color: var(--text-secondary);"><i class="fa-solid fa-circle-dot"></i> الحالة: غير مفعل (اضغط للربط)</span>'}
                             </div>
 
-                            <button onclick="window.dashboardUI.linkBackupFolder()" class="btn-neuro" style="background: ${window.syncManager.isAutoBackupEnabled ? 'rgba(0, 234, 255, 0.1)' : 'var(--accent-blue)'}; color: ${window.syncManager.isAutoBackupEnabled ? 'var(--accent-blue)' : '#000'}; font-weight: 800; border: ${window.syncManager.isAutoBackupEnabled ? '1px solid var(--accent-blue)' : 'none'}; padding: 12px 30px;">
+                            <button onclick="window.dashboardUI.linkBackupFolder()" class="btn-neuro" style="background: ${window.syncManager.isAutoBackupEnabled ? 'rgba(0, 234, 255, 0.1)' : 'var(--accent-primary)'}; color: ${window.syncManager.isAutoBackupEnabled ? 'var(--accent-primary)' : '#fff'}; font-weight: 900; border: 2px solid var(--accent-primary); padding: 14px 40px; border-radius: 12px; font-size: 1.1rem;">
                                 <i class="fa-solid ${window.syncManager.isAutoBackupEnabled ? 'fa-rotate' : 'fa-link'}"></i> ${window.syncManager.isAutoBackupEnabled ? 'تغيير المجلد المرتبط' : 'ربط مجلد الحفظ التلقائي'}
                             </button>
                         </div>
 
-                        <div style="padding: 20px; border: 1px dashed rgba(16, 185, 129, 0.3); border-radius: 15px; text-align: center; background: rgba(16, 185, 129, 0.05);">
-                            <h4 style="color: #10b981; margin-bottom: 15px;">استيراد مرضى من (CSV)</h4>
+                        <div style="padding: 20px; border: 1px dashed rgba(16, 185, 129, 0.6); border-radius: 15px; text-align: center; background: rgba(16, 185, 129, 0.05);">
+                            <h4 style="color: #059669; margin-bottom: 15px; font-weight: 800;">استيراد مرضى من (CSV)</h4>
                             <input type="file" id="restore-csv-input" accept=".csv" style="display: none;" onchange="window.dashboardUI.handleRestoreCSV(event)">
-                            <button onclick="document.getElementById('restore-csv-input').click()" class="btn-neuro" style="background: #10b981; border-color: #10b981; color: #fff; margin: 0 auto; width: 100%;">
+                            <button onclick="document.getElementById('restore-csv-input').click()" class="btn-neuro" style="background: #059669; border-color: #059669; color: #fff; margin: 0 auto; width: 100%; font-weight: 800;">
                                 <i class="fa-solid fa-file-import"></i> استيراد ملف CSV
                             </button>
-                            <p style="color: #cbd5e1; font-size: 0.7rem; margin-top: 10px;">يتم إضافة المرضى الجدد فقط لسجلك الحالي</p>
+                            <p style="color: var(--text-secondary); font-size: 0.8rem; margin-top: 10px; font-weight: 600;">يتم إضافة المرضى الجدد فقط لسجلك الحالي</p>
                         </div>
                     </div>
 
-                    <div style="margin-top: 20px; padding: 20px; border: 1px solid rgba(0, 234, 255, 0.2); border-radius: 15px; background: rgba(0, 234, 255, 0.05); text-align: center;">
-                        <h4 style="color: #00eaff; margin-bottom: 10px;">المزامنة اليدوية مع السحابة</h4>
-                        <p style="color: #94a3b8; font-size: 0.8rem; margin-bottom: 15px;">استخدم هذا الزر إذا كنت تشك بأن البيانات لم ترفع تلقائياً للسحاب.</p>
-                        <button onclick="window.dashboardUI.forceSync()" class="btn-neuro" style="background: #00eaff; border-color: #00eaff; color: #000; margin: 0 auto;">
+                    <div style="margin-top: 20px; padding: 25px; border: 1px solid var(--glass-border); border-radius: 20px; background: rgba(0, 234, 255, 0.03); text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.02);">
+                        <h4 style="color: var(--accent-primary); margin-bottom: 12px; font-weight: 900; font-size: 1.15rem;">المزامنة اليدوية مع السحابة</h4>
+                        <p style="color: var(--text-primary); font-size: 0.95rem; margin-bottom: 20px; font-weight: 800;">استخدم هذا الزر إذا كنت تشك بأن البيانات لم ترفع تلقائياً للسحاب.</p>
+                        <button onclick="window.dashboardUI.forceSync()" class="btn-neuro" style="background: var(--accent-primary); border-color: var(--accent-primary); color: #fff; margin: 0 auto; font-weight: 800; padding: 12px 25px; border-radius: 12px;">
                             <i class="fa-solid fa-cloud-arrow-up"></i> رفع البيانات للسحاب الآن
                         </button>
                     </div>
 
                     <!-- Master Factory Reset Button -->
-                    <div style="margin-top: 30px; padding: 20px; border: 2px solid #ef4444; border-radius: 20px; background: rgba(239, 68, 68, 0.05); text-align: center;">
-                        <h4 style="color: #ef4444; margin-bottom: 10px;"><i class="fa-solid fa-triangle-exclamation"></i> منطقة الخطر: ضبط مصنع شامل</h4>
-                        <p style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 20px;">هذا الزر سيحذف جميع المرضى والعمليات المالية ويبدأ العداد من 101. يتطلب كلمة سر المدير.</p>
-                        <button onclick="window.dashboardUI.triggerMasterReset()" class="btn-neuro" style="background: #ef4444; border-color: #ef4444; color: #fff; margin: 0 auto; box-shadow: 0 0 20px rgba(239, 68, 68, 0.3);">
+                    <div style="margin-top: 30px; padding: 25px; border: 2px solid #ef4444; border-radius: 24px; background: rgba(239, 68, 68, 0.04); text-align: center; box-shadow: 0 10px 30px rgba(239, 68, 68, 0.05);">
+                        <h4 style="color: #ef4444; margin-bottom: 12px; font-weight: 900; font-size: 1.2rem;"><i class="fa-solid fa-triangle-exclamation"></i> منطقة الخطر: ضبط مصنع شامل</h4>
+                        <p style="color: var(--text-primary); font-size: 1rem; margin-bottom: 25px; font-weight: 800; line-height: 1.6;">هذا الزر سيحذف جميع المرضى والعمليات المالية ويبدأ العداد من 101. يتطلب كلمة سر المدير.</p>
+                        <button onclick="window.dashboardUI.triggerMasterReset()" class="btn-neuro" style="background: #ef4444; border-color: #ef4444; color: #fff; margin: 0 auto; box-shadow: 0 0 20px rgba(239, 68, 68, 0.3); font-weight: 900; padding: 14px 40px; border-radius: 15px;">
                             <i class="fa-solid fa-trash-can-arrow-up"></i> تصفير النظام والبدء من #101#
                         </button>
                     </div>
                     ` : ''}
                 </div>
 
-                <!-- System Info -->
-                <div style="background: rgba(30, 41, 59, 0.5); border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; padding: 30px; margin-top: 20px;">
-                    <h3 style="color: #fff; margin-bottom: 15px;">
-                        <i class="fa-solid fa-info-circle"></i> معلومات النظام
-                    </h3>
-                    <div style="color: #94a3b8; line-height: 1.8;">
-                        <p><strong>الإصدار:</strong> 2.1.0 (Cloud Sync Edition)</p>
-                        <p><strong>آخر تحديث:</strong> ${new Date().toLocaleDateString('ar-EG')}</p>
-                        <p><strong>المستخدم الحالي:</strong> ${currentUser?.name || 'غير معروف'}</p>
-                        <p><strong>الصلاحية:</strong> ${this.getRoleLabel(currentUser?.role)}</p>
+                <!-- System Info & Help -->
+                <div style="background: var(--bg-surface); border: 1px solid var(--glass-border); border-radius: 24px; padding: 30px; margin-top: 25px; box-shadow: 0 4px 20px rgba(0,0,0,0.03);">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 40px;">
+                        
+                        <!-- Info Column -->
+                        <div style="flex: 1; min-width: 250px;">
+                            <h3 style="color: var(--text-primary); margin-bottom: 20px; font-weight: 900; font-size: 1.4rem;">
+                                <i class="fa-solid fa-info-circle"></i> معلومات النظام
+                            </h3>
+                            <div style="color: var(--text-secondary); line-height: 2; font-size: 1.05rem; font-weight: 700;">
+                                <p style="margin-bottom: 10px;"><strong>الإصدار:</strong> 2.6.0 (Auto-Guardian Edition)</p>
+                                <p style="margin-bottom: 10px;"><strong>آخر تحديث:</strong> ${new Date().toLocaleDateString('ar-EG')}</p>
+                                <p style="margin-bottom: 10px;"><strong>المستخدم الحالي:</strong> ${currentUser?.name || 'غير معروف'}</p>
+                                <p style="margin-bottom: 10px;"><strong>الصلاحية:</strong> ${this.getRoleLabel(currentUser?.role)}</p>
+                            </div>
+                        </div>
+
+                        <!-- Documentation Column -->
+                        <div style="flex: 1; min-width: 250px;">
+                            <h3 style="color: var(--accent-primary); margin-bottom: 20px; font-weight: 900; font-size: 1.4rem;">
+                                <i class="fa-solid fa-book-open"></i> المساعدة والتوثيق
+                            </h3>
+                            <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+                                <a href="capabilities_guide.html" target="_blank" class="btn-neuro" style="text-decoration: none; display: inline-flex; background: rgba(0, 234, 255, 0.1); color: var(--accent-primary); border: 2px solid var(--accent-primary); font-weight: 800; padding: 12px 20px; border-radius: 12px;">
+                                    <i class="fa-solid fa-star"></i> دليل الإمكانيات
+                                </a>
+                                <a href="user_manual.html" target="_blank" class="btn-neuro" style="text-decoration: none; display: inline-flex; background: rgba(34, 197, 94, 0.1); color: #059669; border: 2px solid #059669; font-weight: 800; padding: 12px 20px; border-radius: 12px;">
+                                    <i class="fa-solid fa-circle-question"></i> دليل المستخدم
+                                </a>
+                            </div>
+                            <p style="margin-top: 20px; color: var(--text-secondary); font-size: 0.95rem; font-weight: 800; font-style: italic;">
+                                <i class="fa-solid fa-arrow-pointer"></i> اضغط لفتح الدليل في تبويب منفصل
+                            </p>
+                        </div>
+
                     </div>
                 </div>
             </div>
@@ -2141,7 +2326,7 @@ class DashboardUI {
                     </p>
                 </div>
                 
-                <label style="display: block; color: #fff; margin-bottom: 8px; font-weight: 600;">كلمة مرور المدير للتأكيد (Master Password):</label>
+                <label style="display: block; color: var(--text-primary); margin-bottom: 8px; font-weight: 700;">أدخل كلمة مرور المدير للتأكيد:</label>
                 <input type="password" id="master-reset-pass" class="neuro-input" 
                        style="width: 100%; border-color: #ef4444; box-shadow: 0 0 10px rgba(239, 68, 68, 0.1);" 
                        placeholder="********" autofocus>

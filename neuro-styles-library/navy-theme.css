@@ -1,0 +1,188 @@
+/* =========================================================
+   NAVY BLUE THEME (DEEP TECH) 
+   =========================================================
+   CHARACTERISTICS:
+   - Primary Color: Deep Navy (#0a192f)
+   - Accent Color: Cyan / Electric Blue (#00eaff)
+   - Style: Futuristic, High-Tech, Cyberpunk
+   - Shadows: Neon Blue Glows, Laser Effects
+   ========================================================= */
+
+:root {
+    /* Color Palette */
+    --bg-deep: #0a192f;
+    --bg-surface: #112240;
+    --accent-glow: #00eaff;
+    --accent-primary: #00eaff;
+    --text-primary: #ffffff;
+    --text-secondary: #a8b2d1;
+    --glass-border: rgba(0, 234, 255, 0.2);
+    --neon-shadow: 0 0 20px rgba(0, 234, 255, 0.3);
+
+    /* Layout & Styling */
+    --border-radius-base: 14px;
+}
+
+body {
+    background: radial-gradient(circle at 50% 50%, #1e293b 0%, #07090f 100%);
+    color: var(--text-primary);
+    font-family: inherit;
+}
+
+/* ---------------------------------------------------------
+   GENERIC COMPONENTS
+   --------------------------------------------------------- */
+
+/* PRIMARY BUTTON */
+.app-btn-primary {
+    background: #0f172a;
+    color: #fff;
+    border: 2px solid var(--accent-primary);
+    padding: 12px 25px;
+    border-radius: var(--border-radius-base);
+    font-weight: 800;
+    text-shadow: 0 0 10px var(--accent-primary);
+    box-shadow: 0 0 15px rgba(0, 234, 255, 0.2);
+    animation: laser-flicker 0.2s infinite alternate;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.app-btn-primary:hover {
+    background: var(--accent-primary);
+    color: #000;
+    text-shadow: none;
+    box-shadow: 0 0 35px var(--accent-primary);
+    transform: translateY(-3px);
+}
+
+/* CARDS */
+.app-card {
+    background: rgba(30, 41, 59, 0.5);
+    border: 1px solid var(--glass-border);
+    backdrop-filter: blur(20px);
+    border-radius: 24px;
+    padding: 25px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    color: var(--text-primary);
+}
+
+.app-card:hover {
+    border-color: var(--accent-primary);
+    box-shadow: 0 15px 40px rgba(0, 234, 255, 0.1);
+    transform: translateY(-5px);
+}
+
+/* ICONS */
+.app-icon-box {
+    width: 60px;
+    height: 60px;
+    border-radius: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #0f172a;
+    color: var(--accent-primary);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    box-shadow: 0 0 15px rgba(0, 234, 255, 0.1);
+    font-size: 1.8rem;
+}
+
+/* TABLES */
+.app-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0 10px;
+}
+
+.app-table td {
+    padding: 20px;
+    background: rgba(15, 23, 42, 0.4);
+    color: #f3f4f6;
+    border-top: 1px solid rgba(255, 255, 255, 0.02);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.02);
+}
+
+/* Rounded Edges for Rows */
+.app-table td:first-child {
+    border-radius: 0 15px 15px 0;
+    border-right: 1px solid rgba(255, 255, 255, 0.02);
+}
+
+.app-table td:last-child {
+    border-radius: 15px 0 0 15px;
+    border-left: 1px solid rgba(255, 255, 255, 0.02);
+}
+
+.app-table tr:hover td {
+    background: rgba(0, 234, 255, 0.05);
+    border-color: rgba(0, 234, 255, 0.1);
+}
+
+/* INPUTS */
+.app-input {
+    background: #0f172a;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    padding: 10px 18px;
+    color: var(--text-primary);
+    outline: none;
+    transition: all 0.3s;
+}
+
+.app-input:focus {
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 15px rgba(0, 234, 255, 0.1);
+}
+
+/* MODALS */
+.app-modal-content {
+    background: #0f172a;
+    border: 2px solid var(--accent-primary);
+    border-radius: 28px;
+    box-shadow: 0 0 50px rgba(0, 234, 255, 0.2);
+    padding: 40px;
+    text-align: center;
+}
+
+.app-modal-title {
+    color: #fff;
+    font-size: 1.8rem;
+    font-weight: 800;
+    text-shadow: 0 0 10px rgba(0, 234, 255, 0.4);
+}
+
+/* NAVIGATION */
+.app-nav-item {
+    color: var(--text-secondary);
+    padding: 10px;
+    border-radius: 12px;
+    transition: all 0.3s;
+    cursor: pointer;
+}
+
+.app-nav-item:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: #fff;
+    transform: translateY(-2px);
+}
+
+.app-nav-item.active {
+    background: rgba(0, 234, 255, 0.1);
+    color: #fff;
+    border: 1px solid rgba(0, 234, 255, 0.3);
+    box-shadow: 0 0 15px rgba(0, 234, 255, 0.15) inset;
+}
+
+/* ANIMATIONS */
+@keyframes laser-flicker {
+    0% {
+        opacity: 0.9;
+        box-shadow: 0 0 10px rgba(0, 234, 255, 0.2);
+    }
+
+    100% {
+        opacity: 1;
+        box-shadow: 0 0 25px rgba(0, 234, 255, 0.5);
+    }
+}

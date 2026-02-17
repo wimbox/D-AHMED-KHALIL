@@ -15,7 +15,7 @@ function showCustomModal(title, message, onConfirm = null, showCancel = true, sh
             display: flex;
             align-items: center;
             justify-content: center;
-            z-index: 10000;
+            z-index: 30000;
             animation: fadeIn 0.2s ease;
         `;
 
@@ -563,7 +563,11 @@ class App {
             const genderEl = document.getElementById('patient-gender');
 
             if (nameEl) nameEl.textContent = selected.name;
-            if (ageEl) ageEl.textContent = selected.age;
+            if (ageEl) {
+                // Digital Prescription Standard: Show only digits, strip units (سنة، شهر، يوم)
+                const ageDigitsOnly = selected.age ? selected.age.split(' ')[0] : '--';
+                ageEl.textContent = ageDigitsOnly;
+            }
             if (genderEl) genderEl.textContent = selected.gender;
 
             // Patient ID Display
@@ -1893,5 +1897,16 @@ window.addEventListener('DOMContentLoaded', () => {
     }
 
     console.log("App Initialized");
+});
+
+/* =========================================
+   F1 Help Center Integration
+   ========================================= */
+document.addEventListener('keydown', function (e) {
+    // F1 key opens Help Center
+    if (e.key === 'F1') {
+        e.preventDefault(); // Prevent browser's default F1 behavior
+        window.open('help-center.html', '_blank', 'width=1400,height=900,scrollbars=yes,resizable=yes');
+    }
 });
 

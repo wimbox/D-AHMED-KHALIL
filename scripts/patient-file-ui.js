@@ -36,6 +36,90 @@ class PatientFileUI {
             };
         }
 
+        // Show Medical Alerts Button
+        const showAlertsBtn = document.getElementById('btn-show-medical-alerts');
+        const alertsOverlay = document.getElementById('medical-alerts-overlay');
+        if (showAlertsBtn && alertsOverlay) {
+            showAlertsBtn.onclick = () => {
+                alertsOverlay.style.display = 'flex';
+                // Sync data to overlay before showing
+                const patient = syncManager.getPatientsByClinic().find(p => p.id === this.currentPatientId);
+                if (patient) {
+                    const yesBtn = document.getElementById('alert-btn-allergies-yes');
+                    const noBtn = document.getElementById('alert-btn-allergies-no');
+                    const allergyInput = document.getElementById('alert-input-allergies');
+                    const notesArea = document.getElementById('alert-input-notes');
+
+                    if (patient.allergies && patient.allergies !== 'لا') {
+                        yesBtn.style.background = '#ef4444';
+                        yesBtn.style.color = '#fff';
+                        noBtn.style.background = 'transparent';
+                        noBtn.style.color = '#ef4444';
+                        allergyInput.value = patient.allergies;
+                    } else {
+                        noBtn.style.background = '#10b981';
+                        noBtn.style.color = '#fff';
+                        yesBtn.style.background = 'transparent';
+                        yesBtn.style.color = '#ef4444';
+                        allergyInput.value = '';
+                    }
+                    notesArea.value = patient.permanentNotes || '';
+                }
+            };
+        }
+
+        // Overlay Toggle Logic
+        const yesBtn = document.getElementById('alert-btn-allergies-yes');
+        const noBtn = document.getElementById('alert-btn-allergies-no');
+        if (yesBtn && noBtn) {
+            yesBtn.onclick = () => {
+                yesBtn.style.background = '#ef4444'; yesBtn.style.color = '#fff';
+                noBtn.style.background = 'transparent'; noBtn.style.color = '#ef4444';
+            };
+            noBtn.onclick = () => {
+                noBtn.style.background = '#10b981'; noBtn.style.color = '#fff';
+                yesBtn.style.background = 'transparent'; yesBtn.style.color = '#ef4444';
+                document.getElementById('alert-input-allergies').value = '';
+            };
+        }
+
+        // Save Medical Alerts (From Overlay)
+        const saveAlertsBtn = document.getElementById('btn-save-medical-alerts');
+        if (saveAlertsBtn) {
+            saveAlertsBtn.onclick = () => {
+                const allergyVal = yesBtn.style.background === 'rgb(239, 68, 68)'
+                    ? document.getElementById('alert-input-allergies').value || 'يوجد حساسية'
+                    : 'لا';
+                const notesVal = document.getElementById('alert-input-notes').value;
+
+                window.syncManager.upsertPatient({
+                    id: this.currentPatientId,
+                    allergies: allergyVal,
+                    permanentNotes: notesVal
+                });
+
+                alertsOverlay.style.display = 'none';
+                this.open(this.currentPatientId);
+                window.showNeuroToast('تم تحديث التنبيهات الطبية بنجاح');
+            };
+        }
+
+        // Gender Toggle (Edit Mode)
+        const eMaleBtn = document.getElementById('edit-gender-male');
+        const eFemaleBtn = document.getElementById('edit-gender-female');
+        const eGenderInput = document.getElementById('edit-p-gender');
+        if (eMaleBtn && eFemaleBtn && eGenderInput) {
+            const setEditGender = (isMale) => {
+                eMaleBtn.style.background = isMale ? '#00eaff' : 'transparent';
+                eMaleBtn.style.color = isMale ? '#000' : '#94a3b8';
+                eFemaleBtn.style.background = isMale ? 'transparent' : '#00eaff';
+                eFemaleBtn.style.color = isMale ? '#94a3b8' : '#000';
+                eGenderInput.value = isMale ? 'ذكر' : 'أنثى';
+            };
+            eMaleBtn.onclick = () => setEditGender(true);
+            eFemaleBtn.onclick = () => setEditGender(false);
+        }
+
         // Delete Patient Button
         const deleteBtn = document.getElementById('btn-delete-patient');
         if (deleteBtn) {
@@ -52,30 +136,32 @@ class PatientFileUI {
             };
         }
 
-        // Edit Patient Form
         const editForm = document.getElementById('edit-patient-form');
         if (editForm) {
             editForm.onsubmit = (e) => {
                 e.preventDefault();
                 if (!this.currentPatientId) return;
 
-                const n1 = document.getElementById('edit-name-1').value.trim();
-                const n2 = document.getElementById('edit-name-2').value.trim();
-                const n3 = document.getElementById('edit-name-3').value.trim();
-                const n4 = document.getElementById('edit-name-4').value.trim();
+                const fullName = document.getElementById('edit-p-full-name').value.trim();
 
-                if (!n1 || !n2 || !n3) {
+                const ageNum = document.getElementById('edit-p-age-number').value || 0;
+                const ageUnit = document.getElementById('edit-p-age-unit').value || 'سنة';
+
+                if (!fullName) {
                     window.soundManager.playError();
-                    window.showNeuroToast('يرجى إدخال الاسم الثلاثي على الأقل', 'error');
+                    window.showNeuroToast('يرجى إدخال اسم المريض', 'error');
                     return;
                 }
 
-                const fullName = [n1, n2, n3, n4].filter(part => part.length > 0).join(" ");
+                const genderVal = document.getElementById('edit-p-gender').value;
+
+                const ageStr = `${ageNum} ${ageUnit}`;
 
                 const patientData = {
                     id: this.currentPatientId,
                     name: fullName,
-                    age: document.getElementById('edit-p-age').value,
+                    age: ageStr,
+                    gender: genderVal,
                     phone: document.getElementById('edit-p-phone').value.trim()
                 };
 
@@ -84,8 +170,11 @@ class PatientFileUI {
                 window.showNeuroToast('تم تحديث بيانات المريض بنجاح');
 
                 // Refresh local UI
-                document.getElementById('file-patient-name').textContent = fullName;
                 this.open(this.currentPatientId);
+                if (window.dashboardUI) {
+                    window.dashboardUI.updateStats();
+                    window.dashboardUI.renderPatientsManagement();
+                }
             };
         }
 
@@ -133,17 +222,67 @@ class PatientFileUI {
 
         const infoEl = document.getElementById('file-patient-info');
         if (infoEl) {
-            infoEl.textContent = `كود: #${patient.patientCode || '---'} | ${patient.gender || 'غير محدد'}، ${patient.age || '--'} سنة | ${patient.phone || 'بدون هاتف'}`;
+            infoEl.textContent = `كود: #${patient.patientCode || '---'} | ${patient.gender || 'غير محدد'} | ${patient.age || '--'} | ${patient.phone || 'بدون هاتف'}`;
+        }
+
+        // Set edit gender toggle
+        if (patient.gender === 'أنثى') {
+            const femaleBtn = document.getElementById('edit-gender-female');
+            if (femaleBtn) femaleBtn.click();
+        } else {
+            const maleBtn = document.getElementById('edit-gender-male');
+            if (maleBtn) maleBtn.click();
+        }
+
+        // Handle Medical Alert Card (Deleted as we now use the 'بيانات المريض' button and overlay)
+        // But we still update existing inputs just in case
+        const alertCard = document.getElementById('medical-alert-card');
+        const alertContent = document.getElementById('file-medical-alerts');
+        if (alertCard && alertContent) {
+            const hasAllergies = patient.allergies && patient.allergies.trim().length > 0;
+            const hasNotes = patient.permanentNotes && patient.permanentNotes.trim().length > 0;
+
+            if (hasAllergies || hasNotes) {
+                alertCard.style.display = 'flex';
+                let html = '';
+                if (hasAllergies) {
+                    html += `<div style="margin-bottom: 5px;"><span style="color: #ef4444; border: 1px solid #ef4444; padding: 2px 8px; border-radius: 6px; font-size: 0.8rem; margin-left: 10px;">حساسية</span> <span style="font-weight: 800; color: #f87171;">${patient.allergies}</span></div>`;
+                }
+                if (hasNotes) {
+                    html += `<div><span style="color: #f59e0b; border: 1px solid #f59e0b; padding: 2px 8px; border-radius: 6px; font-size: 0.8rem; margin-left: 10px;">ملاحظات</span> <span>${patient.permanentNotes}</span></div>`;
+                }
+                alertContent.innerHTML = html;
+            } else {
+                alertCard.style.display = 'none';
+            }
         }
 
         // Populate edit fields
-        const nameParts = (patient.name || "").split(" ");
-        if (document.getElementById('edit-name-1')) document.getElementById('edit-name-1').value = nameParts[0] || "";
-        if (document.getElementById('edit-name-2')) document.getElementById('edit-name-2').value = nameParts[1] || "";
-        if (document.getElementById('edit-name-3')) document.getElementById('edit-name-3').value = nameParts[2] || "";
-        if (document.getElementById('edit-name-4')) document.getElementById('edit-name-4').value = nameParts.slice(3).join(" ") || "";
+        // Populate full name field
+        if (document.getElementById('edit-p-full-name')) {
+            document.getElementById('edit-p-full-name').value = patient.name || '';
+        }
 
-        if (document.getElementById('edit-p-age')) document.getElementById('edit-p-age').value = patient.age || '';
+        // Parse Age (New Format: "33 سنة" or Old Format: "33 سنة / 5 شهر / 20 يوم")
+        if (patient.age) {
+            const parts = patient.age.split(' ');
+            if (parts.length >= 2) {
+                // Digital style: Get number and unit
+                document.getElementById('edit-p-age-number').value = parseInt(parts[0]) || 0;
+                // If it was the old complex format, parts[1] might be "سنة" which is fine
+                const unit = parts[1];
+                if (['سنة', 'شهر', 'يوم'].includes(unit)) {
+                    document.getElementById('edit-p-age-unit').value = unit;
+                } else {
+                    document.getElementById('edit-p-age-unit').value = 'سنة';
+                }
+            } else {
+                // Full backward compatibility
+                document.getElementById('edit-p-age-number').value = parseInt(patient.age) || 0;
+                document.getElementById('edit-p-age-unit').value = 'سنة';
+            }
+        }
+
         if (document.getElementById('edit-p-phone')) document.getElementById('edit-p-phone').value = patient.phone || '';
 
         this.updateLedgerView();
@@ -310,7 +449,7 @@ class PatientFileUI {
             `<iframe src="${uri}" style="width: 100%; height: 80vh; border: none;"></iframe>`;
 
         const overlay = document.createElement('div');
-        overlay.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 2000; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(5px);';
+        overlay.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 30001; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(5px);';
         overlay.innerHTML = `<div style="position: relative; max-width: 90vw; max-height: 90vh;">
             <button onclick="this.parentElement.parentElement.remove()" style="position: absolute; top: -40px; right: 0; background: none; border: none; color: white; font-size: 2rem; cursor: pointer;">×</button>
             ${content}

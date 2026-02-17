@@ -562,6 +562,8 @@ class SyncManager {
             const oldName = this.data.patients[index].name;
             this.data.patients[index] = { ...this.data.patients[index], ...patient, lastUpdated: new Date().toISOString() };
             this.logAction(currentUser, 'UPDATE_PATIENT', `تعديل بيانات المريض: ${oldName} (${patient.name})`);
+            this.saveLocal();
+            return this.data.patients[index];
         } else {
             const nextCode = (this.data.settings.lastPatientCode || 0) + 1;
             this.data.settings.lastPatientCode = nextCode;
@@ -576,8 +578,9 @@ class SyncManager {
             };
             this.data.patients.push(newPatient);
             this.logAction(currentUser, 'ADD_PATIENT', `إضافة مريض جديد: ${newPatient.name} (${newPatient.patientCode})`);
+            this.saveLocal();
+            return newPatient;
         }
-        this.saveLocal();
     }
 
     deletePatient(id) {

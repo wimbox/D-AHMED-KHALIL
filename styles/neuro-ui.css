@@ -10,6 +10,14 @@
     --text-secondary: #94a3b8;
     --neon-shadow: 0 0 20px rgba(0, 234, 255, 0.2);
     --danger-red: #ef4444;
+
+    /* Theme Abstractions */
+    --theme-accent: #00eaff;
+    --theme-panel-bg: #1e293b;
+    --theme-card-bg: rgba(30, 41, 59, 0.7);
+    --theme-border: rgba(0, 234, 255, 0.3);
+    --theme-glow: 0 0 30px rgba(0, 234, 255, 0.2);
+    --theme-text-accent: #000;
 }
 
 /* Backup Guardian Alert */
@@ -194,8 +202,8 @@ body {
 
 .sidebar-logo i {
     font-size: 2.8rem;
-    color: var(--accent-blue);
-    filter: drop-shadow(0 0 15px var(--accent-blue));
+    color: var(--theme-accent);
+    filter: drop-shadow(0 0 15px var(--theme-accent));
 }
 
 .sidebar-logo span {
@@ -246,24 +254,21 @@ body {
 }
 
 .nav-item:hover i {
-    color: var(--accent-blue);
-    filter: drop-shadow(0 0 8px var(--accent-blue));
+    color: var(--theme-accent);
+    filter: drop-shadow(0 0 8px var(--theme-accent));
     transform: scale(1.1);
 }
 
 .nav-item.active {
-    background: rgba(0, 234, 255, 0.1);
-    color: #fff;
-    border-left: 0;
-    /* Remove side border for cleaner look */
-    border: 1px solid rgba(0, 234, 255, 0.3);
-    /* Add subtle border */
-    box-shadow: 0 0 15px rgba(0, 234, 255, 0.15) inset;
+    background: rgba(var(--accent-blue-rgb), 0.1);
+    color: var(--text-primary);
+    border: 1px solid var(--theme-border);
+    box-shadow: 0 0 15px rgba(var(--accent-blue-rgb), 0.15) inset;
 }
 
 .nav-item.active i {
-    color: var(--accent-blue);
-    filter: drop-shadow(0 0 12px var(--accent-blue));
+    color: var(--theme-accent);
+    filter: drop-shadow(0 0 12px var(--theme-accent));
 }
 
 .sidebar-footer {
@@ -355,7 +360,7 @@ body {
     border-bottom: 2px solid var(--glass-border);
     flex: 0 0 auto;
     /* Don't shrink/grow */
-    z-index: 90;
+    z-index: 1000;
 }
 
 /* Sound Toggle Button in Top Bar */
@@ -403,15 +408,15 @@ body {
 .user-avatar {
     width: 45px;
     height: 45px;
-    background: #0f172a;
-    border: 2px solid var(--accent-blue);
+    background: var(--bg-deep);
+    border: 2px solid var(--theme-accent);
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
     font-weight: 800;
-    color: var(--accent-blue);
-    box-shadow: 0 0 15px rgba(0, 234, 255, 0.2);
+    color: var(--theme-accent);
+    box-shadow: var(--theme-glow);
 }
 
 .user-info h4 {
@@ -441,12 +446,12 @@ body {
 }
 
 .search-bar:focus-within {
-    border-color: var(--accent-blue);
-    box-shadow: 0 0 15px rgba(0, 234, 255, 0.1);
+    border-color: var(--theme-accent);
+    box-shadow: var(--theme-glow);
 }
 
 .search-bar i {
-    color: var(--accent-blue);
+    color: var(--theme-accent);
 }
 
 .search-bar input {
@@ -460,7 +465,8 @@ body {
 
 /* Views & Content */
 .view-container {
-    padding: 40px;
+    padding: 0 40px 40px 40px;
+    /* تصفير الحشو العلوي لرفع البطاقات */
     flex: 1;
     /* Take remaining space */
     overflow-y: auto;
@@ -470,48 +476,82 @@ body {
 
 .stats-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    /* Reduced minmax */
-    gap: 25px;
-    margin-bottom: 40px;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 12px;
+    margin: 0 !important;
+    /* إزالة كافة الهوامش */
+    padding: 10px 0;
+    position: sticky;
+    top: 0;
+    z-index: 101;
+    background: var(--bg-deep);
+    border-bottom: 1px solid var(--theme-border);
+    /* استخدام متغير الحدود للثيم */
+}
+
+/* Responsive: 3 columns for medium screens */
+@media screen and (max-width: 1400px) {
+    .stats-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+/* Responsive: 2 columns for tablets */
+@media screen and (max-width: 768px) {
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+/* Responsive: 1 column for mobile */
+@media screen and (max-width: 480px) {
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
 }
 
 .stat-card {
     background: rgba(30, 41, 59, 0.5);
     border: 1px solid var(--glass-border);
-    border-radius: 24px;
-    padding: 25px;
-    /* Slightly reduced padding */
+    border-radius: 18px;
+    /* Reduced from 20px (additional 5% reduction) */
+    padding: 18px;
+    /* Reduced from 20px (additional 5% reduction) */
     backdrop-filter: blur(20px);
     display: flex;
     align-items: center;
-    gap: 20px;
+    gap: 12px;
+    /* Reduced from 15px (additional 5% reduction) */
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
 }
 
 .stat-card:hover {
     transform: translateY(-8px);
-    border-color: var(--accent-blue);
-    box-shadow: 0 15px 40px rgba(0, 234, 255, 0.1);
+    border-color: var(--theme-accent);
+    box-shadow: var(--theme-glow);
 }
 
 .stat-icon {
-    width: 60px;
-    height: 60px;
-    border-radius: 18px;
+    width: 46px;
+    /* Reduced from 50px (additional 5% reduction) */
+    height: 46px;
+    border-radius: 14px;
+    /* Reduced from 15px */
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.8rem;
-    background: #0f172a;
-    border: 1px solid rgba(255, 255, 255, 0.05);
-    color: var(--accent-blue);
-    box-shadow: 0 0 15px rgba(0, 234, 255, 0.1);
+    font-size: 1.4rem;
+    /* Reduced from 1.5rem (additional 5% reduction) */
+    background: var(--bg-deep);
+    border: 1px solid var(--theme-border);
+    color: var(--theme-accent);
+    box-shadow: var(--theme-glow);
 }
 
 .stat-info h3 {
-    font-size: 2rem;
+    font-size: 1.6rem;
+    /* Reduced from 1.7rem (additional 5% reduction) */
     font-weight: 800;
     color: #fff;
     margin-bottom: 5px;
@@ -520,16 +560,24 @@ body {
 .stat-info p {
     color: var(--text-secondary);
     font-weight: 600;
-    font-size: 0.9rem;
+    font-size: 0.75rem;
+    /* Reduced from 0.8rem (additional 5% reduction) */
 }
 
 /* Appointment Table / List */
-.data-card {
-    background: rgba(30, 41, 59, 0.4);
-    border: 1px solid var(--glass-border);
-    border-radius: 28px;
-    padding: 35px;
-    backdrop-filter: blur(20px);
+.today-appointments-container {
+    background: var(--theme-card-bg);
+    /* استخدام متغير خلفية الكروت للثيم */
+    border: 1px solid var(--theme-border);
+    padding: 15px 20px;
+    border-radius: 0 0 20px 20px;
+    /* تدوير الحواف السفلية فقط للدمج */
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    position: sticky;
+    top: 100px;
+    /* المسافة المقدرة لارتفاع البطاقات ليبقى ثابتاً تحتها */
+    z-index: 100;
+    margin-top: 0 !important;
 }
 
 .section-header h2 {
@@ -724,7 +772,7 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 9999;
+    z-index: 30000;
 }
 
 .neuro-modal-content {
@@ -1335,10 +1383,10 @@ body {
         flex: 2 !important;
         height: 50px;
         padding: 0 15px;
-        background: #0f172a;
-        border: 2px solid var(--accent-blue) !important;
+        background: var(--bg-deep);
+        border: 2px solid var(--theme-accent) !important;
         border-radius: 14px;
-        box-shadow: 0 0 15px rgba(0, 234, 255, 0.2);
+        box-shadow: var(--theme-glow);
     }
 
     .search-bar input {
@@ -1574,6 +1622,14 @@ body.theme-blue {
     --text-primary: #ffffff;
     --text-secondary: #a8b2d1;
     --neon-shadow: 0 0 20px rgba(0, 234, 255, 0.3);
+
+    /* UI Logic */
+    --theme-accent: #00eaff;
+    --theme-panel-bg: #112240;
+    --theme-card-bg: rgba(10, 25, 47, 0.7);
+    --theme-border: rgba(0, 234, 255, 0.4);
+    --theme-glow: 0 0 40px rgba(0, 234, 255, 0.3);
+    --theme-text-accent: #000;
 }
 
 /* --- 2. THEME: MUTED BRONZE (Luxury Night Mode) --- */
@@ -1587,6 +1643,14 @@ body.theme-gold {
     --text-primary: #e5e1da;
     --text-secondary: #a8a096;
     --neon-shadow: 0 0 20px rgba(197, 160, 89, 0.1);
+
+    /* UI Logic */
+    --theme-accent: #c5a059;
+    --theme-panel-bg: #26211c;
+    --theme-card-bg: rgba(30, 25, 20, 0.8);
+    --theme-border: rgba(197, 160, 89, 0.4);
+    --theme-glow: 0 0 40px rgba(197, 160, 89, 0.3);
+    --theme-text-accent: #000;
 }
 
 body.theme-gold {
@@ -1632,15 +1696,23 @@ body.theme-royal {
     /* Light Slate */
     --bg-surface: #ffffff;
     /* Pure White */
-    --accent-blue: #0f172a;
+    --accent-blue: #1e293b;
     /* Midnight Navy */
-    --accent-glow: #000000;
+    --accent-glow: #1e293b;
     --glass-border: rgba(0, 0, 0, 0.1);
     --text-primary: #020617;
     /* Very Deep Black-Navy for Names */
     --text-secondary: #334155;
     /* Solid Slate for Secondary */
     --neon-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+
+    /* UI Logic */
+    --theme-accent: #1e293b;
+    --theme-panel-bg: #ffffff;
+    --theme-card-bg: #f8fafc;
+    --theme-border: rgba(0, 0, 0, 0.1);
+    --theme-glow: 0 10px 40px rgba(0, 0, 0, 0.05);
+    --theme-text-accent: #fff;
 }
 
 body.theme-royal {

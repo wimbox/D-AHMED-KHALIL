@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>دليل الإمكانيات | Neuro-Clinic Pro</title>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #0f172a;
+            --accent: #00eaff;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --bg-light: #f8fafc;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Tajawal', sans-serif;
+            background-color: #fff;
+            color: var(--text-main);
+            line-height: 1.7;
+            padding: 40px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 60px;
+            padding-bottom: 30px;
+            border-bottom: 3px solid var(--accent);
+        }
+
+        .logo-area {
+            font-size: 3rem;
+            color: var(--primary);
+            margin-bottom: 15px;
+        }
+
+        h1 {
+            font-weight: 900;
+            font-size: 2.5rem;
+            color: var(--primary);
+        }
+
+        .version {
+            color: var(--text-muted);
+            font-weight: 700;
+            margin-top: 10px;
+        }
+
+        section {
+            margin-bottom: 50px;
+            page-break-inside: avoid;
+        }
+
+        .section-header {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 25px;
+            background: var(--bg-light);
+            padding: 15px 25px;
+            border-radius: 15px;
+            border-right: 6px solid var(--primary);
+        }
+
+        .section-header i {
+            font-size: 1.8rem;
+            color: var(--primary);
+        }
+
+        .section-header h2 {
+            font-size: 1.8rem;
+            font-weight: 800;
+        }
+
+        .feature-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .feature-card {
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            padding: 25px;
+            border-radius: 20px;
+            transition: 0.3s;
+        }
+
+        .feature-card i {
+            font-size: 1.5rem;
+            color: var(--success);
+            margin-bottom: 15px;
+            display: block;
+        }
+
+        .feature-card h3 {
+            font-size: 1.2rem;
+            font-weight: 900;
+            margin-bottom: 10px;
+            color: var(--primary);
+        }
+
+        .feature-card p {
+            font-size: 0.95rem;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+        }
+
+        th,
+        td {
+            padding: 15px;
+            text-align: right;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        th {
+            background-color: var(--primary);
+            color: #fff;
+            font-weight: 800;
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        .badge {
+            padding: 4px 12px;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            font-weight: 800;
+            display: inline-block;
+        }
+
+        .badge-pro {
+            background: rgba(0, 234, 255, 0.1);
+            color: var(--primary);
+            border: 1px solid var(--accent);
+        }
+
+        .badge-locked {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--success);
+            border: 1px solid var(--success);
+        }
+
+        .tech-box {
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            color: #fff;
+            padding: 40px;
+            border-radius: 30px;
+            margin-top: 40px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .tech-box h2 {
+            color: var(--accent);
+            margin-bottom: 20px;
+            font-size: 1.8rem;
+            font-weight: 900;
+        }
+
+        .tech-box p {
+            opacity: 0.9;
+            font-size: 1.1rem;
+            margin-bottom: 30px;
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 80px;
+            padding-top: 40px;
+            border-top: 1px solid #e2e8f0;
+            color: var(--text-muted);
+            font-weight: 700;
+        }
+
+        @media print {
+            body {
+                padding: 0;
+            }
+
+            .container {
+                max-width: 100%;
+            }
+
+            .feature-card {
+                border: 1px solid #eee;
+            }
+
+            .tech-box {
+                background: #f0f4f8 !important;
+                color: #000 !important;
+                border: 2px solid #000;
+            }
+
+            .tech-box h2 {
+                color: #000 !important;
+            }
+
+            .tech-box p {
+                color: #333 !important;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <div class="logo-area">
+                <i class="fa-solid fa-brain"></i>
+            </div>
+            <h1>دليل إمكانيات نظام Neuro-Clinic</h1>
+            <p class="version">الإصدار 3.311 (النسخة الاحترافية - Auto-Guardian)</p>
+        </header>
+
+        <!-- Core Module -->
+        <section>
+            <div class="section-header">
+                <i class="fa-solid fa-folder-open"></i>
+                <h2>إدارة السجلات الطبية (EHR)</h2>
+            </div>
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <i class="fa-solid fa-id-card"></i>
+                    <h3>هوية المريض الرقمية</h3>
+                    <p>نظام تكويد ذكي يمنح المريض رقماً فريداً (مثال: #101#) لسهولة البحث والوصول للملف التاريخي في
+                        ثوانٍ.</p>
+                </div>
+                <div class="feature-card">
+                    <i class="fa-solid fa-clock-rotate-left"></i>
+                    <h3>الأرشيف الزمني</h3>
+                    <p>توثيق كامل لكل الزيارات السابقة، الأدوية الموصوفة، والتشخيصات السابقة مع إمكانية التكرار السريع.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Finance Module -->
+        <section>
+            <div class="section-header">
+                <i class="fa-solid fa-coins"></i>
+                <h2>المحرك المالي الذكي</h2>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>الميزة</th>
+                        <th>الوصف التقني</th>
+                        <th>التصنيف</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>الإقفال اليومي</td>
+                        <td>حساب تلقائي للإيرادات والمصروفات وصافي الربح بضغطة زر.</td>
+                        <td><span class="badge badge-locked">آمن</span></td>
+                    </tr>
+                    <tr>
+                        <td>تعدد الفروع</td>
+                        <td>فصل الحسابات المالية لكل عيادة على حدة مع تقارير مدمجة.</td>
+                        <td><span class="badge badge-pro">احترافي</span></td>
+                    </tr>
+                    <tr>
+                        <td>سجل المصروفات</td>
+                        <td>نظام تصنيف للمصروفات (إيجار، أدوات، رواتب) لمراقبة الإنفاق.</td>
+                        <td><span class="badge badge-pro">إداري</span></td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <!-- Prescription Tech -->
+        <section>
+            <div class="section-header">
+                <i class="fa-solid fa-file-signature"></i>
+                <h2>تكنولوجيا الروزتة الإلكترونية</h2>
+            </div>
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i>
+                    <h3>محرر الروزتة الذكي</h3>
+                    <p>محرر متقدم يدعم الرسم الحر، إدراج الصور، الكتابة اليدوية، والتنسيق الطباعي الفاخر.</p>
+                </div>
+                <div class="feature-card">
+                    <i class="fa-solid fa-shield-halved"></i>
+                    <h3>العلامة المائية الرقمية</h3>
+                    <p>تشفير بيانات المريض داخل ملف الروشتة (Watermarking) لمنع التزوير وحفظ الخصوصية.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Data Security -->
+        <section class="tech-box">
+            <h2><i class="fa-solid fa-user-shield"></i> صمامات الأمان (Auto-Guardian)</h2>
+            <p>يعمل نظام Neuro-Clinic بمبدأ "لا ضياع للبيانات". يتضمن النظام تقنية الحفظ التلقائي لكل حرف يتم كتابته، مع
+                ربط مجلد محلي على جهازك لتخزين نسخة احتياطية مشفرة فور حدوث أي تغيير.</p>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                <div style="background: rgba(255,255,255,0.1); padding: 20px; border-radius: 15px;">
+                    <h4 style="color: var(--accent); margin-bottom: 10px;">المزامنة السحابية</h4>
+                    <p style="font-size: 0.9rem;">ربط مباشر مع قواعد البيانات المشفرة لضمان الوصول من أي مكان.</p>
+                </div>
+                <div style="background: rgba(255,255,255,0.1); padding: 20px; border-radius: 15px;">
+                    <h4 style="color: var(--accent); margin-bottom: 10px;">تعدد الصلاحيات</h4>
+                    <p style="font-size: 0.9rem;">نظام أدوار (مدير، طبيب، سكرتارية) للتحكم الكامل في الخصوصية.</p>
+                </div>
+            </div>
+        </section>
+
+        <footer class="footer">
+            <p>جميع الحقوق محفوظة &copy; 2026 Neuro-Clinic | د. أحمد محمد أحمد خليل</p>
+            <p style="margin-top: 10px; font-size: 0.8rem;">تم تصميم هذا النظام ليعمل بأعلى معايير الجودة الطبية
+                والتقنية.</p>
+        </footer>
+    </div>
+</body>
+
+</html>

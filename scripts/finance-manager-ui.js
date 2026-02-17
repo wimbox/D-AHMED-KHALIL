@@ -136,7 +136,12 @@ class FinanceManagerUI {
             return;
         }
 
-        tbody.innerHTML = data.map(t => `
+        tbody.innerHTML = data.map(t => {
+            const paid = parseFloat(t.amount || 0);
+            const original = parseFloat(t.originalAmount || paid);
+            const remaining = original - paid;
+
+            return `
             <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
                 <td style="padding: 15px; color: #94a3b8;">${new Date(t.date).toLocaleDateString('ar-EG')} <span style="font-size:0.8rem; opacity:0.5">${new Date(t.date).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}</span></td>
                 <td style="padding: 15px; font-weight: 600; color: #fff;">${t.description}</td>
@@ -150,8 +155,14 @@ class FinanceManagerUI {
                         border: 1px solid ${t.type === 'income' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)'};
                     ">${t.type === 'income' ? 'إيراد' : 'مصروف'}</span>
                 </td>
+                <td style="padding: 15px; font-weight: 700; color: #cbd5e1;">
+                    ${original.toLocaleString()} EGP
+                </td>
                 <td style="padding: 15px; font-weight: 800; font-family: 'Inter'; font-size: 1.1rem; color: ${t.type === 'income' ? '#10b981' : '#ef4444'};">
-                    ${parseFloat(t.amount).toLocaleString()} EGP
+                    ${paid.toLocaleString()} EGP
+                </td>
+                <td style="padding: 15px; font-weight: 700; color: ${remaining > 0 ? '#f59e0b' : '#64748b'};">
+                    ${remaining.toLocaleString()} EGP
                 </td>
                 <td style="padding: 15px; color: #cbd5e1;">${t.beneficiary || '-'}</td>
                 <td style="padding: 15px;">
@@ -165,7 +176,7 @@ class FinanceManagerUI {
                     </div>
                 </td>
             </tr>
-        `).join('');
+        `}).join('');
     }
 
     updateStats() {
@@ -210,7 +221,12 @@ class FinanceManagerUI {
                     </div>
 
                     <div style="margin-bottom: 20px; text-align: right;">
-                        <label style="display: block; color: #94a3b8; margin-bottom: 10px; font-size: 1.05rem; text-align: right;">المبلغ (EGP)</label>
+                        <label style="display: block; color: #94a3b8; margin-bottom: 10px; font-size: 1.05rem; text-align: right;">المبلغ الأساسي (الإجمالي)</label>
+                        <input type="number" id="new-tx-original" class="neuro-input" placeholder="0.00" style="width: 100%; font-size: 1.2rem; padding: 12px; text-align: center;">
+                    </div>
+
+                    <div style="margin-bottom: 20px; text-align: right;">
+                        <label style="display: block; color: #94a3b8; margin-bottom: 10px; font-size: 1.05rem; text-align: right;">المدفوع حالياً</label>
                         <input type="number" id="new-tx-amount" class="neuro-input" placeholder="0.00" style="width: 100%; font-size: 1.3rem; font-weight: bold; padding: 12px; text-align: center;">
                     </div>
 
@@ -248,13 +264,23 @@ class FinanceManagerUI {
             }
         };
 
+        // Auto-fill logic
+        const origInput = document.getElementById('new-tx-original');
+        const paidInput = document.getElementById('new-tx-amount');
+
+        // If user enters Original first, auto-fill Paid
+        origInput.addEventListener('change', () => {
+            if (!paidInput.value) paidInput.value = origInput.value;
+        });
+
         // Focus
-        setTimeout(() => document.getElementById('new-tx-amount').focus(), 100);
+        setTimeout(() => origInput.focus(), 100);
 
         document.getElementById('btn-save-new-tx').onclick = () => {
             const date = document.getElementById('new-tx-date').value;
             const desc = document.getElementById('new-tx-desc').value;
             const amount = parseFloat(document.getElementById('new-tx-amount').value);
+            const original = parseFloat(document.getElementById('new-tx-original').value);
             const beneficiary = document.getElementById('new-tx-beneficiary').value;
 
             if (!amount || amount <= 0 || !desc) {
@@ -264,11 +290,14 @@ class FinanceManagerUI {
                 return;
             }
 
+            const finalOriginal = (original && original >= amount) ? original : amount;
+
             const tx = {
                 id: crypto.randomUUID(),
                 date: new Date(date).toISOString(),
                 type: type,
                 amount: amount,
+                originalAmount: finalOriginal,
                 description: desc,
                 beneficiary: beneficiary || (type === 'income' ? 'عيادة' : 'مورد')
             };
@@ -316,7 +345,12 @@ class FinanceManagerUI {
                     </div>
 
                     <div style="margin-bottom: 15px;">
-                        <label style="display: block; color: #94a3b8; margin-bottom: 8px;">المبلغ</label>
+                        <label style="display: block; color: #94a3b8; margin-bottom: 8px;">المبلغ الأساسي</label>
+                        <input type="number" id="edit-tx-original" class="neuro-input" value="${tx.originalAmount || tx.amount}" style="width: 100%;">
+                    </div>
+
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; color: #94a3b8; margin-bottom: 8px;">المدفوع</label>
                         <input type="number" id="edit-tx-amount" class="neuro-input" value="${tx.amount}" style="width: 100%;">
                     </div>
                     
@@ -358,12 +392,17 @@ class FinanceManagerUI {
             const index = syncManager.data.finances.transactions.findIndex(t => t.id === id);
             if (index === -1) return;
 
+            const amount = parseFloat(document.getElementById('edit-tx-amount').value);
+            const original = parseFloat(document.getElementById('edit-tx-original').value);
+            const finalOriginal = (original && original >= amount) ? original : amount;
+
             syncManager.data.finances.transactions[index] = {
                 ...syncManager.data.finances.transactions[index],
                 date: new Date(document.getElementById('edit-tx-date').value).toISOString(),
                 type: document.getElementById('edit-tx-type').value,
                 description: document.getElementById('edit-tx-desc').value,
-                amount: parseFloat(document.getElementById('edit-tx-amount').value),
+                amount: amount,
+                originalAmount: finalOriginal,
                 beneficiary: document.getElementById('edit-tx-beneficiary').value
             };
             syncManager.saveLocal();
@@ -377,6 +416,12 @@ class FinanceManagerUI {
     }
 
     deleteTx(id) {
+        if (!window.authManager.isAdmin()) {
+            window.soundManager.playError();
+            this.showNotification('عفواً، صلاحية الحذف للمدير فقط.', 'error');
+            return;
+        }
+
         window.soundManager.playBuzz();
         showNeuroModal('تأكيد الحذف', 'هل أنت متأكد تماماً من حذف هذا السجل المالي نهائياً؟', () => {
             syncManager.data.finances.transactions = syncManager.data.finances.transactions.filter(t => t.id !== id);

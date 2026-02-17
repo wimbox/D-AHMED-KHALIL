@@ -1,0 +1,171 @@
+/* =========================================================
+   ROYAL WHITE THEME (CLEAN & MINIMAL)
+   =========================================================
+   CHARACTERISTICS:
+   - Primary Color: Pure White (#ffffff)
+   - Secondary Color: Light Slate (#f1f5f9)
+   - Accent Color: Deep Navy (#0f172a)
+   - Style: Professional, Medical, High-End
+   - Shadows: Soft, Non-Glowing, Clean Lines
+   ========================================================= */
+
+:root {
+    /* Color Palette */
+    --bg-deep: #f1f5f9;
+    --bg-surface: #ffffff;
+    --accent-primary: #0f172a;
+    /* Main Action Color */
+    --accent-secondary: #000000;
+    --text-primary: #020617;
+    --text-secondary: #334155;
+
+    /* Layout & Styling */
+    --border-radius-base: 14px;
+    --shadow-soft: 0 4px 12px rgba(0, 0, 0, 0.08);
+    /* No Neon Glow */
+    --glass-border: rgba(0, 0, 0, 0.05);
+}
+
+body {
+    background: var(--bg-deep);
+    /* Solid Color, No Gradient */
+    color: var(--text-primary);
+    font-family: inherit;
+    /* Inherit Font */
+}
+
+/* ---------------------------------------------------------
+   GENERIC COMPONENTS
+   --------------------------------------------------------- */
+
+/* PRIMARY ACTION BUTTON */
+.app-btn-primary {
+    background: var(--accent-primary);
+    color: #ffffff;
+    border: none;
+    padding: 12px 25px;
+    border-radius: var(--border-radius-base);
+    font-weight: 800;
+    text-shadow: none;
+    /* Clean Text */
+    box-shadow: var(--shadow-soft);
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.app-btn-primary:hover {
+    background: #1e293b;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 15px rgba(15, 23, 42, 0.2);
+}
+
+/* CARDS & CONTAINERS */
+.app-card {
+    background: #ffffff;
+    border: 1px solid var(--glass-border);
+    border-radius: 20px;
+    padding: 25px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
+}
+
+.app-card:hover {
+    border-color: var(--accent-primary);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+}
+
+/* ICONS */
+.app-icon-box {
+    width: 50px;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-deep);
+    color: var(--accent-primary);
+    border-radius: 12px;
+    font-size: 1.5rem;
+}
+
+/* DATA TABLES */
+.app-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0 10px;
+}
+
+.app-table td {
+    background: #ffffff;
+    padding: 15px;
+    color: #000000;
+    border: 1px solid #e2e8f0;
+    font-weight: 500;
+}
+
+.app-table td:first-child {
+    border-radius: 12px 0 0 12px;
+    border-left: 4px solid var(--accent-primary);
+    /* Accent Line */
+    font-weight: 800;
+}
+
+.app-table td:last-child {
+    border-radius: 0 12px 12px 0;
+}
+
+.app-table tr:hover td {
+    background: #f8fafc;
+}
+
+/* INPUT FIELDS */
+.app-input {
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    color: #0f172a;
+    padding: 10px 15px;
+    border-radius: 10px;
+    width: 100%;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.02);
+}
+
+.app-input:focus {
+    border-color: var(--accent-primary);
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.1);
+}
+
+/* MODALS */
+.app-modal-content {
+    background: #ffffff;
+    border: none;
+    border-radius: 24px;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.15);
+    padding: 40px;
+    text-align: center;
+}
+
+.app-modal-title {
+    color: var(--accent-primary);
+    font-size: 1.8rem;
+    font-weight: 800;
+}
+
+/* NAVIGATION ITEMS */
+.app-nav-item {
+    color: var(--text-secondary);
+    padding: 10px;
+    border-radius: 10px;
+    font-weight: 600;
+    transition: all 0.2s;
+}
+
+.app-nav-item:hover,
+.app-nav-item.active {
+    background: rgba(15, 23, 42, 0.05);
+    /* Light Grey Hover */
+    color: var(--accent-primary);
+}
+
+.app-nav-item.active {
+    font-weight: 800;
+    border-left: 3px solid var(--accent-primary);
+}

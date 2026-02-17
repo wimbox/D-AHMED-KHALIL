@@ -1,0 +1,850 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>مركز المساعدة | Neuro-Clinic Help Center</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&family=Inter:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --bg-deep: #07090f;
+            --bg-surface: #1e293b;
+            --accent-blue: #00eaff;
+            --accent-glow: #00eaff;
+            --glass-bg: rgba(15, 23, 42, 0.7);
+            --glass-border: rgba(0, 234, 255, 0.15);
+            --text-primary: #f3f4f6;
+            --text-secondary: #94a3b8;
+            --neon-shadow: 0 0 20px rgba(0, 234, 255, 0.2);
+            --theme-accent: #00eaff;
+            --theme-panel-bg: #1e293b;
+            --theme-border: rgba(0, 234, 255, 0.3);
+            --theme-glow: 0 0 30px rgba(0, 234, 255, 0.2);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Tajawal', 'Inter', sans-serif;
+            background: radial-gradient(circle at 50% 50%, #1e293b 0%, #07090f 100%);
+            color: var(--text-primary);
+            direction: rtl;
+            overflow-x: hidden;
+            padding: 0;
+            margin: 0;
+        }
+
+        /* Header */
+        .help-header {
+            background: rgba(15, 23, 42, 0.95);
+            backdrop-filter: blur(20px);
+            border-bottom: 2px solid var(--glass-border);
+            padding: 25px 40px;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+
+        .help-header-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .help-logo {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .help-logo i {
+            font-size: 2.5rem;
+            color: var(--accent-blue);
+            filter: drop-shadow(0 0 15px var(--accent-blue));
+        }
+
+        .help-logo h1 {
+            font-size: 1.8rem;
+            font-weight: 800;
+            color: #fff;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
+        }
+
+        .help-search {
+            flex: 1;
+            max-width: 500px;
+            margin: 0 40px;
+            position: relative;
+        }
+
+        .help-search input {
+            width: 100%;
+            background: #0f172a;
+            border: 2px solid var(--glass-border);
+            border-radius: 14px;
+            padding: 14px 50px 14px 20px;
+            color: #fff;
+            font-size: 1rem;
+            font-weight: 600;
+            outline: none;
+            transition: all 0.3s;
+        }
+
+        .help-search input:focus {
+            border-color: var(--accent-blue);
+            box-shadow: 0 0 20px rgba(0, 234, 255, 0.2);
+        }
+
+        .help-search i {
+            position: absolute;
+            left: 18px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--accent-blue);
+            font-size: 1.2rem;
+        }
+
+        .btn-close-help {
+            background: transparent;
+            border: 2px solid var(--accent-blue);
+            color: var(--accent-blue);
+            padding: 12px 25px;
+            border-radius: 12px;
+            font-weight: 800;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 1rem;
+        }
+
+        .btn-close-help:hover {
+            background: var(--accent-blue);
+            color: #000;
+            box-shadow: 0 0 25px var(--accent-blue);
+            transform: translateY(-2px);
+        }
+
+        /* Main Container */
+        .help-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 40px;
+        }
+
+        /* Quick Access Cards */
+        .quick-access {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 25px;
+            margin-bottom: 50px;
+        }
+
+        .quick-card {
+            background: rgba(30, 41, 59, 0.5);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 30px;
+            backdrop-filter: blur(20px);
+            transition: all 0.3s;
+            cursor: pointer;
+            text-decoration: none;
+            display: block;
+        }
+
+        .quick-card:hover {
+            transform: translateY(-8px);
+            border-color: var(--accent-blue);
+            box-shadow: 0 0 30px rgba(0, 234, 255, 0.2);
+        }
+
+        .quick-card-icon {
+            width: 70px;
+            height: 70px;
+            background: #0f172a;
+            border: 2px solid var(--accent-blue);
+            border-radius: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            color: var(--accent-blue);
+            margin-bottom: 20px;
+            box-shadow: 0 0 15px rgba(0, 234, 255, 0.2);
+        }
+
+        .quick-card h3 {
+            font-size: 1.4rem;
+            font-weight: 800;
+            color: #fff;
+            margin-bottom: 10px;
+        }
+
+        .quick-card p {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            line-height: 1.6;
+        }
+
+        /* Help Sections */
+        .help-section {
+            background: rgba(30, 41, 59, 0.4);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+            padding: 40px;
+            margin-bottom: 30px;
+            backdrop-filter: blur(20px);
+        }
+
+        .help-section-header {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid var(--glass-border);
+        }
+
+        .help-section-header i {
+            font-size: 2.2rem;
+            color: var(--accent-blue);
+            filter: drop-shadow(0 0 10px var(--accent-blue));
+        }
+
+        .help-section-header h2 {
+            font-size: 1.8rem;
+            font-weight: 800;
+            color: #fff;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.1);
+        }
+
+        /* Help Items Grid */
+        .help-items {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 20px;
+        }
+
+        .help-item {
+            background: rgba(15, 23, 42, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 16px;
+            padding: 25px;
+            transition: all 0.3s;
+        }
+
+        .help-item:hover {
+            background: rgba(0, 234, 255, 0.05);
+            border-color: rgba(0, 234, 255, 0.2);
+        }
+
+        .help-item-title {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .help-item-title i {
+            color: var(--accent-blue);
+            font-size: 1.2rem;
+        }
+
+        .help-item-title h4 {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: #fff;
+        }
+
+        .help-item p {
+            color: var(--text-secondary);
+            line-height: 1.7;
+            font-size: 0.95rem;
+            margin-bottom: 15px;
+        }
+
+        .help-item-shortcut {
+            display: inline-block;
+            background: rgba(0, 234, 255, 0.1);
+            border: 1px solid rgba(0, 234, 255, 0.3);
+            color: var(--accent-blue);
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-weight: 800;
+            font-family: 'Inter', monospace;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(0, 234, 255, 0.2);
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(0, 234, 255, 0.4);
+        }
+
+        /* Search Highlight */
+        .highlight {
+            background: rgba(255, 235, 59, 0.3);
+            color: #fff;
+            padding: 2px 4px;
+            border-radius: 4px;
+        }
+
+        /* Footer */
+        .help-footer {
+            text-align: center;
+            padding: 40px;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            border-top: 1px solid var(--glass-border);
+            margin-top: 50px;
+        }
+
+        .help-footer i {
+            color: #ef4444;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Header -->
+    <header class="help-header">
+        <div class="help-header-content">
+            <div class="help-logo">
+                <i class="fa-solid fa-circle-question"></i>
+                <h1>مركز المساعدة الذكي</h1>
+            </div>
+            <div class="help-search">
+                <input type="text" id="help-search-input" placeholder="ابحث عن أي شيء...">
+                <i class="fa-solid fa-magnifying-glass"></i>
+            </div>
+            <button class="btn-close-help" onclick="window.close()">
+                <i class="fa-solid fa-xmark"></i>
+                إغلاق
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <div class="help-container">
+        <!-- Quick Access -->
+        <div class="quick-access">
+            <a href="#patients" class="quick-card">
+                <div class="quick-card-icon">
+                    <i class="fa-solid fa-users"></i>
+                </div>
+                <h3>إدارة المرضى</h3>
+                <p>إضافة، تعديل، وإدارة سجلات المرضى بالكامل</p>
+            </a>
+            <a href="#appointments" class="quick-card">
+                <div class="quick-card-icon">
+                    <i class="fa-solid fa-calendar-check"></i>
+                </div>
+                <h3>جدول المواعيد</h3>
+                <p>حجز وإدارة المواعيد والأرشيف الزمني</p>
+            </a>
+            <a href="#prescriptions" class="quick-card">
+                <div class="quick-card-icon">
+                    <i class="fa-solid fa-file-medical"></i>
+                </div>
+                <h3>الروشتات</h3>
+                <p>محرر الروشتات والقوالب الجاهزة</p>
+            </a>
+            <a href="#finance" class="quick-card">
+                <div class="quick-card-icon">
+                    <i class="fa-solid fa-wallet"></i>
+                </div>
+                <h3>الماليات</h3>
+                <p>المدير المالي والتقارير المحاسبية</p>
+            </a>
+        </div>
+
+        <!-- Section 1: إدارة المرضى -->
+        <div class="help-section" id="patients">
+            <div class="help-section-header">
+                <i class="fa-solid fa-users"></i>
+                <h2>إدارة المرضى</h2>
+            </div>
+            <div class="help-items">
+                <div class="help-item">
+                    <div class="help-item-title">
+                        <i class="fa-solid fa-user-plus"></i>
+                        <h4>إضافة مريض جديد</h4>
+                    </div>
+                    <p>اضغط على زر "إضافة مريض جديد" من قائمة سجلات المرضى. أدخل البيانات الأساسية: الاسم (ثلاثي
+                        أو رباعي)، النوع، السن، رقم الهاتف. يمكنك إضافة حساسية الأدوية وملاحظات دائمة.</p>
+                    <span class="help-item-shortcut">من الصفحة الرئيسية → سجلات المرضى</span>
+                </div>
+                <div class="help-item">
+                    <div class="help-item-title">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                        <h4>البحث السريع عن مريض</h4>
+                    </div>
+                    <p>استخدم شريط البحث العلوي في أي صفحة. ابدأ بكتابة اسم المريض أو رقم الهاتف، وستظهر لك
+                        الاقتراحات فوراً. اضغط على اسم المريض لفتح ملفه الكامل.</p>
+                    <span class="help-item-shortcut">شريط البحث العلوي</span>
+                </div>
+                <div class="help-item">
+                    <div class="help-item-title">
+                        <i class="fa-solid fa-folder-open"></i>
+                        <h4>فتح ملف المريض</h4>
+                    </div>
+                    <p>من جدول المرضى، اضغط على اسم المريض أو أيقونة "فتح الملف". ستفتح نافذة شاملة تحتوي على:
+                        البيانات الشخصية، سجل الزيارات، المواعيد، الروشتات، المستندات، والحسابات المالية.</p>
+                    <span class="help-item-shortcut">من جدول المرضى</span>
+                </div>
+                <div class="help-item">
+                    <div class="help-item-title">
+                        <i class="fa-solid fa-pen-to-square"></i>
+                        <h4>تعديل بيانات المريض</h4>
+                    </div>
+                    <p>من داخل ملف المريض، اضغط على "بيانات المريض" ثم "تعديل البيانات". يمكنك تحديث أي معلومة
+                        (الاسم، الهاتف، الحساسية، الملاحظات). التعديلات تُحفظ فوراً في قاعدة البيانات.</p>
+                    <span class="help-item-shortcut">داخل ملف المريض</span>
+                </div>
+                <div class="help-item">
+                    <div class="help-item-title">
+                        <i class="fa-solid fa-trash-can"></i>
+                        <h4>حذف مريض</h4>
+                    </div>
+                    <p>من جدول المرضى، اضغط على أيقونة الحذف. سيطلب منك النظام تأكيد الحذف. تحذير: حذف المريض
+                        سيحذف جميع بياناته (الزيارات، الروشتات، المواعيد، المستندات).</p>
+                    <span class="help-item-shortcut">إجراءات → حذف</span>
+                </div>
+                <div class="help-item">
+                    <div class="help-item-title">
+                        <i class="fa-solid fa-file-arrow-up"></i>
+                        <h4>رفع مستندات للمريض</h4>
+                    </div>
+                    <p>من ملف المريض، انتقل لتبويب "المستندات". اضغط "رفع مستند جديد" واختر الملف (صور، PDF،
+                        أشعة، تحاليل). يمكنك إضافة وصف لكل مستند. جميع المستندات مرتبطة بالمريض ويمكن تحميلها أو
+                        حذفها.</p>
+                    <span class="help-item-shortcut">ملف المريض → المستندات</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 2: جدول المواعيد -->
+        <div class="help-section" id="appointments">
+            <div class="help-section-header">
+                <i class="fa-solid fa-calendar-check"></i>
+                <h2>جدول المواعيد</h2>
+            </div>
+            <div class="help-items">
+                <div class="help-item">
+                    <div class="help-item-title">
+                        <i class="fa-solid fa-calendar-plus"></i>
+                        <h4>حجز موعد جديد</h4>
+                    </div>
+                    <p>اضغط "حجز موعد جديد" من الصفحة الرئيسية أو صفحة المواعيد. اختر المريض (أو أضف مريض جديد)،
+                        حدد التاريخ والوقت، نوع الخدمة، التكلفة والمبلغ المدفوع. الموعد يُحفظ فوراً ويظهر في الجدول.
+                    </p>
+                    <span class="help-item-shortcut">الرئيسية → حجز موعد</span>
+                </div>
+                <div class="help-item">
+                    <div class="help-item-title">
+                        <i class="fa-solid fa-clock-rotate-left"></i>
+                        <h4>الأرشيف الزمني للمواعيد</h4>
+                    </div>
+                    <p>من صفحة "جدول المواعيد"، استخدم فلتر الأرشيف لاختيار أي شهر وسنة. النظام يعرض الشهر الحالي
+                        افتراضياً، ولكن يمكنك استعراض أي شهر سابق. اضغط "الشهر الحالي" للعودة للوضع الافتراضي.</p>
+                    <span class="help-item-shortcut">جدول المواعيد → فلترة الأرشيف</span>
+                </div>
+                <div class="help-item">
+                    <div class="help-item-title">
+                        <i class="fa-solid fa-pen"></i>
+                        <h4>تعديل موعد</h4>
+                    </div>
+                    <p>من جدول المواعيد، اضغط على أيقونة التعديل بجانب الموعد. يمكنك تغيير التاريخ، الوقت، نوع
+                        الخدمة، أو الحالة (مؤكد، ملغي، منتهي). التعديلات تُحفظ فوراً.</p>
+                    <span class="help-item-shortcut">إجراءات → تعديل</span>
+                </div>
+                <div class="help-item">
+                    <div class="help-item-title">
+                        <i class="fa-solid fa-ban"></i>
+                        <h4>إلغاء موعد</h4>
+                    </div>
+                    <p>اضغط على أيقونة الإلغاء بجانب الموعد. سيتم تغيير حالة الموعد إلى "ملغي". الموعد الملغي يبقى
+                        في السجل للمراجعة ولكن لا يظهر في مواعيد اليوم النشطة.</p>
+                    <span class="help-item-shortcut">إجراءات → إلغاء</span>
+                </div>
+                <div class="help-item">
+                    <div class="help-item-title">
+                        <i class="fa-solid fa-calendar-day"></i>
+                        <h4>مواعيد اليوم</h4>
+                    </div>
+                    <p>الصفحة الرئيسية تعرض جدول "مواعيد اليوم" تلقائياً. يتم تحديث الجدول فوراً عند إضافة أو تعديل
+                        أي موعد. يمكنك الضغط على اسم المريض لفتح ملفه مباشرة.</p>
+                    <span class="help-item-shortcut">الصفحة الرئيسية</span>
+                </div>
+                <div class="help-item">
+                    <div class="help-item-title">
+                        <i class="fa-solid fa-check-circle"></i>
+                        <h4>تأكيد الحضور</h4>
+                    </div>
+                    <p>من جدول المواعيد، اضغط على أيقونة "تأكيد الحضور". سيتم تغيير حالة الموعد إلى "منتهي" وتسجيل
+                        الزيارة في ملف المريض تلقائياً.</p>
+                    <span class="help-item-shortcut">إجراءات → تأكيد</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 3: الروشتات -->
+        <div class="help-section" id="prescriptions">
+            <div class="help-section-header">
+                <i class="fa-solid fa-file-medical"></i>
+                <h2>الروشتات ومحرر الوصفات</h2>
+            </div>
+            <div class="help-items">
+                <div class="help-item">
+                    <div class="help-item-title">
+                        <i class="fa-solid fa-file-signature"></i>
+                        <h4>بدء روشتة جديدة</h4>
+                    </div>
+                    <p>من ملف المريض، اضغط "بدء روشتة". سيفتح محرر الروشتات الاحترافي. أضف الأدوية، الجرعات،
+                        التعليمات، والملاحظات. يمكنك استخدام القوالب الجاهزة أو البدء من الصفر.</p>
+                    <span class="help-item-shortcut">ملف المريض → بدء روشتة</span>
+                </div>
+                <div class="help-item">
+                    <div class="help-item-title">
+                        <i class="fa-solid fa-book-medical"></i>
+                        <h4>مكتبة القوالب الجاهزة</h4>
+                    </div>
+                    <p>من القائمة الجانبية، اضغط "مكتبة الروشتات". يمكنك حفظ روشتات متكررة كقوالب جاهزة. عند بدء
+                        روشتة جديدة، اختر القالب المناسب وسيتم ملء البيانات تلقائياً.</p>
+                    <span class="help-item-shortcut">القائمة → مكتبة الروشتات</span>
+                </div>
+                <div class="help-item">
+                    <div class="help-item-title">
+                        <i class="fa-solid fa-print"></i>
+                        <h4>طباعة الروشتة</h4>
+                    </div>
+                    <p>بعد الانتهاء من كتابة الروشتة، اضغط "طباعة". سيتم فتح نافذة الطباعة مع تنسيق احترافي يحتوي
+                        على شعار العيادة، بيانات الطبيب، بيانات المريض، والأدوية بتنسيق واضح.</p>
+                    <span class="help-item-shortcut">محرر الروشتات → طباعة</span>
+                </div>
+                <div class="help-item">
+                    <div class="help-item-title">
+                        <i class="fa-solid fa-floppy-disk"></i>
+                        <h4>حفظ روشتة كقالب</h4>
+                    </div>
+                    <p>من محرر الروشتات، اضغط "حفظ كقالب". أدخل اسم القالب (مثل: "روشتة الصداع النصفي"). القالب
+                        سيُحفظ في المكتبة ويمكن استخدامه مع أي مريض آخر.</p>
+                    <span class="help-item-shortcut">محرر الروشتات → حفظ كقالب</span>
+                </div>
+                <div class="help-item">
+                    <div class="help-item-title">
+                        <i class="fa-solid fa-clock-rotate-left"></i>
+                        <h4>عرض روشتات سابقة</h4>
+                    </div>
+                    <p>من ملف المريض، تبويب "الروشتات"، يمكنك رؤية جميع الروشتات السابقة للمريض مرتبة حسب التاريخ.
+                        اضغط على أي روشتة لعرضها، طباعتها، أو نسخها لروشتة جديدة.</p>
+                    <span class="help-item-shortcut">ملف المريض → الروشتات</span>
+                </div>
+                <div class="help-item">
+                    <div class="help-item-title">
+                        <i class="fa-solid fa-copy"></i>
+                        <h4>نسخ روشتة سابقة</h4>
+                    </div>
+                    <p>من سجل روشتات المريض، اضغط "نسخ" بجانب أي روشتة سابقة. سيتم فتح محرر جديد بنفس محتوى
+                        الروشتة القديمة، ويمكنك تعديلها وحفظها كروشتة جديدة.</p>
+                    <span class="help-item-shortcut">سجل الروشتات → نسخ</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 4: الماليات -->
+        <div class="help-section" id="finance">
+            <div class="help-section-header">
+                <i class="fa-solid fa-wallet"></i>
+                <h2>الماليات والمحاسبة</h2>
+            </div>
+            <div class="help-items">
+                <div class="help-item">
+                    <div class="help-item-title">
+                        <i class="fa-solid fa-square-arrow-up-right"></i>
+                        <h4>فتح المدير المالي</h4>
+                    </div>
+                    <p>من الشريط العلوي أو القائمة الجانبية، اضغط "المدير المالي". سيفتح في نافذة منفصلة تحتوي على:
+                        لوحة الإحصائيات، دفتر اليومية، المصاريف، الإيرادات، والتقارير المالية.</p>
+                    <span class="help-item-shortcut">الشريط العلوي → المدير المالي</span>
+                </div>
+                <div class="help-item">
+                    <div class="help-item-title">
+                        <i class="fa-solid fa-chart-line"></i>
+                        <h4>لوحة الإحصائيات المالية</h4>
+                    </div>
+                    <p>الصفحة الرئيسية تعرض إحصائيات مالية فورية: إجمالي المرضى، مواعيد اليوم، المحصل فعلياً،
+                        المديونيات، المصاريف، والأرباح الحالية. جميع الأرقام تُحدّث تلقائياً.</p>
+                    <span class="help-item-shortcut">الصفحة الرئيسية</span>
+                </div>
+                <div class="help-item">
+                    <div class="help-item-title">
+                        <i class="fa-solid fa-minus-circle"></i>
+                        <h4>إضافة مصروف</h4>
+                    </div>
+                    <p>من المدير المالي، اضغط "إضافة مصروف". أدخل البيان (مثل: إيجار، رواتب، مستلزمات)، المبلغ،
+                        التاريخ، والمستفيد. المصروف يُسجل فوراً في دفتر اليومية ويؤثر على الأرباح.</p>
+                    <span class="help-item-shortcut">المدير المالي → إضافة مصروف</span>
+                </div>
+                <div class="help-item">
+                    <div class="help-item-title">
+                        <i class="fa-solid fa-file-invoice-dollar"></i>
+                        <h4>إدارة المديونيات</h4>
+                    </div>
+                    <p>من ملف المريض، تبويب "الحسابات"، يمكنك رؤية إجمالي المديونية. اضغط "تسجيل دفعة" لإضافة مبلغ
+                        مدفوع. النظام يحسب الرصيد المتبقي تلقائياً ويسجل كل دفعة في السجل المالي.</p>
+                    <span class="help-item-shortcut">ملف المريض → الحسابات</span>
+                </div>
+                <div class="help-item">
+                    <div class="help-item-title">
+                        <i class="fa-solid fa-print"></i>
+                        <h4>طباعة التقارير المالية</h4>
+                    </div>
+                    <p>من المدير المالي، اضغط "تقرير". اختر نوع التقرير (يومي، شهري، سنوي) والفترة الزمنية. سيتم
+                        إنشاء تقرير شامل يحتوي على: الإيرادات، المصاريف، الأرباح، المديونيات، وتفاصيل كل عملية.</p>
+                    <span class="help-item-shortcut">المدير المالي → تقرير</span>
+                </div>
+                <div class="help-item">
+                    <div class="help-item-title">
+                        <i class="fa-solid fa-download"></i>
+                        <h4>نسخ احتياطي للبيانات</h4>
+                    </div>
+                    <p>النظام يُنبهك تلقائياً إذا مر أكثر من 24 ساعة بدون نسخ احتياطي. اضغط "نسخ احتياطي الآن" من
+                        التنبيه أو من الإعدادات. سيتم تحميل ملف JSON يحتوي على جميع البيانات.</p>
+                    <span class="help-item-shortcut">التنبيه العلوي أو الإعدادات</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 5: الإعدادات العامة -->
+        <div class="help-section">
+            <div class="help-section-header">
+                <i class="fa-solid fa-gear"></i>
+                <h2>الإعدادات والتخصيص</h2>
+            </div>
+            <div class="help-items">
+                <div class="help-item">
+                    <div class="help-item-title">
+                        <i class="fa-solid fa-palette"></i>
+                        <h4>تغيير الثيم</h4>
+                    </div>
+                    <p>من الشريط العلوي، اضغط على أيقونة "Themes". اختر من بين 3 ثيمات: Tech Blue (الأزرق
+                        التقني)، Royal Gold (الذهبي الملكي)، Clear Alabaster (الأبيض الفاتح). الثيم يتغير فوراً
+                        ويُحفظ تلقائياً.</p>
+                    <span class="help-item-shortcut">الشريط العلوي → Themes</span>
+                </div>
+                <div class="help-item">
+                    <div class="help-item-title">
+                        <i class="fa-solid fa-volume-high"></i>
+                        <h4>تفعيل/إيقاف الصوت</h4>
+                    </div>
+                    <p>من الشريط العلوي، اضغط على أيقونة الصوت. يمكنك تفعيل أو إيقاف الأصوات التنبيهية (مثل: صوت
+                        حفظ البيانات، التنبيهات، إلخ). الإعداد يُحفظ تلقائياً.</p>
+                    <span class="help-item-shortcut">الشريط العلوي → الصوت</span>
+                </div>
+                <div class="help-item">
+                    <div class="help-item-title">
+                        <i class="fa-solid fa-hospital"></i>
+                        <h4>إدارة العيادات</h4>
+                    </div>
+                    <p>من الإعدادات، يمكنك إضافة عيادات متعددة (فروع). لكل عيادة بيانات منفصلة: الاسم، العنوان،
+                        الهاتف، الشعار. استخدم القائمة المنسدلة في الشريط العلوي للتبديل بين العيادات.</p>
+                    <span class="help-item-shortcut">الإعدادات → إدارة العيادات</span>
+                </div>
+                <div class="help-item">
+                    <div class="help-item-title">
+                        <i class="fa-solid fa-user-tie"></i>
+                        <h4>إدارة الموظفين</h4>
+                    </div>
+                    <p>من الإعدادات، يمكنك إضافة موظفين (أطباء، ممرضين، إداريين) وتحديد صلاحياتهم. كل موظف له كود QR
+                        خاص للحضور والانصراف.</p>
+                    <span class="help-item-shortcut">الإعدادات → إدارة الموظفين</span>
+                </div>
+                <div class="help-item">
+                    <div class="help-item-title">
+                        <i class="fa-solid fa-qrcode"></i>
+                        <h4>نظام QR للحضور</h4>
+                    </div>
+                    <p>من الإعدادات، يمكنك إنشاء أكواد QR للموظفين. عند مسح الكود، يُسجل الحضور تلقائياً مع الوقت
+                        والتاريخ. يمكنك عرض تقارير الحضور من الإعدادات.</p>
+                    <span class="help-item-shortcut">الإعدادات → QR الحضور</span>
+                </div>
+                <div class="help-item">
+                    <div class="help-item-title">
+                        <i class="fa-solid fa-tv"></i>
+                        <h4>شاشة الانتظار</h4>
+                    </div>
+                    <p>من القائمة الجانبية، اضغط "شاشة الانتظار". ستفتح نافذة جديدة تعرض أسماء المرضى في قائمة
+                        الانتظار بتصميم احترافي. يمكن عرضها على شاشة في صالة الانتظار.</p>
+                    <span class="help-item-shortcut">القائمة → شاشة الانتظار</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 6: اختصارات لوحة المفاتيح -->
+        <div class="help-section">
+            <div class="help-section-header">
+                <i class="fa-solid fa-keyboard"></i>
+                <h2>اختصارات لوحة المفاتيح</h2>
+            </div>
+            <div class="help-items">
+                <div class="help-item">
+                    <div class="help-item-title">
+                        <i class="fa-solid fa-circle-question"></i>
+                        <h4>فتح مركز المساعدة</h4>
+                    </div>
+                    <p>اضغط F1 من أي مكان في البرنامج لفتح مركز المساعدة الذكي.</p>
+                    <span class="help-item-shortcut">F1</span>
+                </div>
+                <div class="help-item">
+                    <div class="help-item-title">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                        <h4>التركيز على البحث</h4>
+                    </div>
+                    <p>اضغط Ctrl + F للانتقال مباشرة إلى شريط البحث السريع.</p>
+                    <span class="help-item-shortcut">Ctrl + F</span>
+                </div>
+                <div class="help-item">
+                    <div class="help-item-title">
+                        <i class="fa-solid fa-user-plus"></i>
+                        <h4>إضافة مريض جديد</h4>
+                    </div>
+                    <p>اضغط Ctrl + N لفتح نافذة إضافة مريض جديد مباشرة.</p>
+                    <span class="help-item-shortcut">Ctrl + N</span>
+                </div>
+                <div class="help-item">
+                    <div class="help-item-title">
+                        <i class="fa-solid fa-floppy-disk"></i>
+                        <h4>حفظ سريع</h4>
+                    </div>
+                    <p>اضغط Ctrl + S لحفظ البيانات الحالية (في النماذج والمحررات).</p>
+                    <span class="help-item-shortcut">Ctrl + S</span>
+                </div>
+                <div class="help-item">
+                    <div class="help-item-title">
+                        <i class="fa-solid fa-print"></i>
+                        <h4>طباعة سريعة</h4>
+                    </div>
+                    <p>اضغط Ctrl + P لطباعة المستند الحالي (روشتة، تقرير، إلخ).</p>
+                    <span class="help-item-shortcut">Ctrl + P</span>
+                </div>
+                <div class="help-item">
+                    <div class="help-item-title">
+                        <i class="fa-solid fa-xmark"></i>
+                        <h4>إغلاق النافذة</h4>
+                    </div>
+                    <p>اضغط Esc لإغلاق النافذة المنبثقة الحالية أو إلغاء العملية.</p>
+                    <span class="help-item-shortcut">Esc</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="help-footer">
+        <p>صُنع بـ <i class="fa-solid fa-heart"></i> لعيادة Neuro-Clinic | جميع الحقوق محفوظة © 2026</p>
+        <p style="margin-top: 10px; font-size: 0.85rem;">للدعم الفني: اضغط F1 في أي وقت</p>
+    </div>
+
+    <script>
+        // Search Functionality
+        const searchInput = document.getElementById('help-search-input');
+        const helpSections = document.querySelectorAll('.help-section');
+        const helpItems = document.querySelectorAll('.help-item');
+
+        searchInput.addEventListener('input', function () {
+            const query = this.value.toLowerCase().trim();
+
+            if (query === '') {
+                // Show all sections and items
+                helpSections.forEach(section => section.style.display = 'block');
+                helpItems.forEach(item => {
+                    item.style.display = 'block';
+                    // Remove highlights
+                    item.innerHTML = item.innerHTML.replace(/<mark class="highlight">(.*?)<\/mark>/gi, '$1');
+                });
+                return;
+            }
+
+            let foundAny = false;
+
+            helpSections.forEach(section => {
+                let sectionHasMatch = false;
+                const items = section.querySelectorAll('.help-item');
+
+                items.forEach(item => {
+                    const text = item.textContent.toLowerCase();
+                    if (text.includes(query)) {
+                        item.style.display = 'block';
+                        sectionHasMatch = true;
+                        foundAny = true;
+
+                        // Highlight matching text
+                        const regex = new RegExp(`(${query})`, 'gi');
+                        const title = item.querySelector('h4');
+                        const description = item.querySelector('p');
+
+                        if (title) {
+                            title.innerHTML = title.textContent.replace(regex, '<mark class="highlight">$1</mark>');
+                        }
+                        if (description) {
+                            description.innerHTML = description.textContent.replace(regex, '<mark class="highlight">$1</mark>');
+                        }
+                    } else {
+                        item.style.display = 'none';
+                    }
+                });
+
+                section.style.display = sectionHasMatch ? 'block' : 'none';
+            });
+        });
+
+        // Smooth scroll for quick access cards
+        document.querySelectorAll('.quick-card').forEach(card => {
+            card.addEventListener('click', function (e) {
+                e.preventDefault();
+                const targetId = this.getAttribute('href');
+                const targetSection = document.querySelector(targetId);
+                if (targetSection) {
+                    targetSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            });
+        });
+
+        // Focus search on Ctrl+F
+        document.addEventListener('keydown', function (e) {
+            if (e.ctrlKey && e.key === 'f') {
+                e.preventDefault();
+                searchInput.focus();
+            }
+        });
+    </script>
+</body>
+
+</html>

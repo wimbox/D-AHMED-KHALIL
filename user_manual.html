@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>دليل المستخدم | Neuro-Clinic Pro</title>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #0f172a;
+            --accent: #22c55e;
+            --info: #0ea5e9;
+            --warning: #f59e0b;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --bg-light: #f1f5f9;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Tajawal', sans-serif;
+            background-color: #fff;
+            color: var(--text-main);
+            line-height: 1.8;
+            padding: 40px;
+        }
+
+        .container {
+            max-width: 950px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 50px;
+            padding: 40px;
+            background: var(--bg-light);
+            border-radius: 30px;
+            border-left: 10px solid var(--accent);
+        }
+
+        h1 {
+            font-weight: 900;
+            font-size: 2.5rem;
+            color: var(--primary);
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            font-size: 1.2rem;
+            color: var(--text-muted);
+            font-weight: 700;
+        }
+
+        nav {
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            padding: 20px;
+            border-radius: 20px;
+            margin-bottom: 40px;
+            position: sticky;
+            top: 20px;
+            z-index: 100;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+        }
+
+        nav ul {
+            list-style: none;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            justify-content: center;
+        }
+
+        nav a {
+            text-decoration: none;
+            color: var(--text-main);
+            font-weight: 800;
+            padding: 8px 15px;
+            border-radius: 10px;
+            transition: 0.3s;
+            font-size: 0.9rem;
+        }
+
+        nav a:hover {
+            background: var(--accent);
+            color: #fff;
+        }
+
+        section {
+            margin-bottom: 70px;
+            scroll-margin-top: 100px;
+        }
+
+        .step-title {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .step-number {
+            background: var(--primary);
+            color: #fff;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 900;
+            font-size: 1.2rem;
+            flex-shrink: 0;
+        }
+
+        h2 {
+            font-size: 1.8rem;
+            font-weight: 900;
+            color: var(--primary);
+        }
+
+        .instructions {
+            padding-right: 55px;
+        }
+
+        .alert-box {
+            background: rgba(34, 197, 94, 0.05);
+            border-right: 5px solid var(--accent);
+            padding: 20px;
+            border-radius: 15px;
+            margin: 20px 0;
+        }
+
+        .instruction-item {
+            margin-bottom: 30px;
+            background: #fff;
+            padding: 20px;
+            border-radius: 15px;
+            border-bottom: 2px solid #f1f5f9;
+        }
+
+        .instruction-item h3 {
+            font-weight: 800;
+            margin-bottom: 10px;
+            color: var(--info);
+        }
+
+        .key-tip {
+            display: inline-block;
+            background: #e2e8f0;
+            padding: 2px 10px;
+            border-radius: 5px;
+            font-family: monospace;
+            font-weight: 900;
+            border-bottom: 3px solid #cbd5e1;
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 80px;
+            padding: 40px;
+            background: var(--primary);
+            color: #fff;
+            border-radius: 30px 30px 0 0;
+        }
+
+        @media print {
+            nav {
+                display: none;
+            }
+
+            body {
+                padding: 0;
+            }
+
+            .container {
+                max-width: 100%;
+            }
+
+            .footer {
+                background: #fff !important;
+                color: #000 !important;
+                border-top: 2px solid #000;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>دليل الاستخدام الكامل</h1>
+            <p class="subtitle">نظام Neuro-Clinic Pro لإدارة العيادات التخصصية</p>
+        </header>
+
+        <nav>
+            <ul>
+                <li><a href="#getting-started">البداية</a></li>
+                <li><a href="#patients">إدارة المرضى</a></li>
+                <li><a href="#booking">المواعيد</a></li>
+                <li><a href="#finance">الحسابات</a></li>
+                <li><a href="#prescriptions">الروشتات</a></li>
+                <li><a href="#settings">الإعدادات</a></li>
+            </ul>
+        </nav>
+
+        <!-- Start -->
+        <section id="getting-started">
+            <div class="step-title">
+                <div class="step-number">1</div>
+                <h2>البداية وتسجيل الدخول</h2>
+            </div>
+            <div class="instructions">
+                <div class="instruction-item">
+                    <h3>تسجيل الدخول</h3>
+                    <p>قم بإدخال اسم المستخدم وكلمة المرور الخاصة بك. تذكر أن الصلاحيات تختلف (المدير يرى كل شيء، الطبيب
+                        يرى العمل الطبي، السكرتارية ترى المواعيد والحسابات).</p>
+                </div>
+                <div class="alert-box">
+                    <strong>نصيحة:</strong> يمكنك تغيير كلمة المرور الخاصة بك من قسم الإعدادات عند رغبتك في ذلك.
+                </div>
+            </div>
+        </section>
+
+        <!-- Patients -->
+        <section id="patients">
+            <div class="step-title">
+                <div class="step-number">2</div>
+                <h2>إدارة سجلات المرضى</h2>
+            </div>
+            <div class="instructions">
+                <div class="instruction-item">
+                    <h3>إضافة مريض جديد</h3>
+                    <p>من الشاشة الرئيسية، اضغط على زر "إضافة مريض". أدخل الاسم، السن، ورقم الهاتف. سيقوم النظام
+                        تلقائياً بمنحه كوداً فريداً.</p>
+                </div>
+                <div class="instruction-item">
+                    <h3>البحث عن مريض</h3>
+                    <p>استخدم شريط البحث السريع في الأعلى. يمكنك البحث بـ (الاسم، الكود، أو رقم الهاتف). النتائج تظهر
+                        لحظياً.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Appointments -->
+        <section id="booking">
+            <div class="step-title">
+                <div class="step-number">3</div>
+                <h2>جدول المواعيد والانتظار</h2>
+            </div>
+            <div class="instructions">
+                <div class="instruction-item">
+                    <h3>حجز موعد</h3>
+                    <p>اختر المريض، ثم اضغط على "حجز موعد جديد". اختر التاريخ واكتب ملاحظات الحالة إذا وجدت.</p>
+                </div>
+                <div class="instruction-item">
+                    <h3>شاشة الانتظار</h3>
+                    <p>هذه الشاشة مخصصة للعرض في صالة الانتظار. توضح المريض "الحالي" والمريض "التالي" لمساعدة السكرتارية
+                        في التنظيم.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Finance -->
+        <section id="finance">
+            <div class="step-title">
+                <div class="step-number">4</div>
+                <h2>الإدارة المالية والمصروفات</h2>
+            </div>
+            <div class="instructions">
+                <div class="instruction-item">
+                    <h3>تسجيل إيراد</h3>
+                    <p>عند دفع المريض لقيمة الكشف، يتم تسجيل المبلغ تلقائياً في السجل المالي للعيادة النشطة حالياً.</p>
+                </div>
+                <div class="instruction-item">
+                    <h3>المصروفات والإقفال</h3>
+                    <p>يمكنك تسجيل أي مصروفات ثانوية (إيجار، كهرباء، أحبار). في نهاية اليوم، استخدم زر "الإقفال اليومي"
+                        للحصول على تقرير الأرباح الصافي.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Prescriptions -->
+        <section id="prescriptions">
+            <div class="step-title">
+                <div class="step-number">5</div>
+                <h2>نظام الروشتات الإلكتروني</h2>
+            </div>
+            <div class="instructions">
+                <div class="instruction-item">
+                    <h3>إنشاء روشتة</h3>
+                    <p>من ملف المريض، اضغط "إنشاء روشتة". سيتم ملء بيانات المريض (الاسم، السن، التاريخ) تلقائياً.</p>
+                </div>
+                <div class="instruction-item">
+                    <h3>التكرار الذكي</h3>
+                    <p>إذا كان المريض يتابع حالة مزمنة، يمكنك الضغط على "تكرار آخر أدوية" لاستدعاء أحدث كشف له في ثانية
+                        واحدة.</p>
+                </div>
+                <div class="alert-box" style="border-right-color: var(--info);">
+                    <strong>اختصارات لوحة المفاتيح:</strong> اضغط على <span class="key-tip">Enter</span> للتأكيد السريع
+                    في أغلب القوائم والمدخلات.
+                </div>
+            </div>
+        </section>
+
+        <!-- Settings -->
+        <section id="settings">
+            <div class="step-title">
+                <div class="step-number">6</div>
+                <h2>الإعدادات والأمان</h2>
+            </div>
+            <div class="instructions">
+                <div class="instruction-item">
+                    <h3>النسخ الاحتياطي (Auto-Guardian)</h3>
+                    <p>يجب عليك ربط مجلد على جهازك لضمان الحفظ التلقائي. يفضل أن يكون المجلد داخلياً (مثل القرص D) لضمان
+                        أسرع أداء للمزامنة.</p>
+                </div>
+                <div class="instruction-item">
+                    <h3>إدارة الموظفين</h3>
+                    <p>لا تمنح صلاحية "المدير" إلا للأشخاص الموثوقين، حيث تتيح هذه الصلاحية حذف السجلات وتغيير الإعدادات
+                        المالية الحساسة.</p>
+                </div>
+            </div>
+        </section>
+
+        <footer class="footer">
+            <p>جميع الحقوق محفوظة &copy; 2026 Neuro-Clinic | نظام العيادة الذكي</p>
+            <p style="margin-top: 10px; font-size: 0.9rem;">للمساعدة التقنية المباشرة، يرجى التواصل مع الدعم الفني الخاص
+                بالنظام.</p>
+        </footer>
+    </div>
+
+    <script>
+        // Smooth scrolling for navigation
+        document.querySelectorAll('nav a').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                document.querySelector(this.getAttribute('href')).scrollIntoView({
+                    behavior: 'smooth'
+                });
+            });
+        });
+    </script>
+</body>
+
+</html>
