@@ -80,5 +80,5 @@ document.addEventListener('DOMContentLoaded', () => {
     // Wait a tiny bit to ensure DashboardUI is also ready
     setTimeout(() => {
         window.navigation = new Navigation();
-    }, 100);
+    }, 500);
 });
