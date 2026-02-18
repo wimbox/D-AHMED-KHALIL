@@ -512,7 +512,7 @@ class SyncManager {
         if (!this.data.settings.lastBackup) return true;
         const last = new Date(this.data.settings.lastBackup).getTime();
         const now = new Date().getTime();
-        return (now - last) > (24 * 60 * 60 * 1000); // 24 Hours
+        return (now - last) > (7 * 24 * 60 * 60 * 1000); // 7 Days threshold
     }
 
     // --- Audit Logging ---
