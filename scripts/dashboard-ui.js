@@ -36,6 +36,13 @@ class DashboardUI {
 
     init() {
         this.updateStats();
+
+        // Final Force: If a migration happened during SyncManager init, 
+        // update stats again to erase Alexandria data from other branches.
+        if (window.syncManager && window.syncManager.shouldForceStatsRefresh) {
+            this.updateStats();
+            window.syncManager.shouldForceStatsRefresh = false;
+        }
         this.renderTodayAppointments();
 
         // Global Modal Helper
@@ -226,6 +233,16 @@ class DashboardUI {
         const scrollTarget = container === window ? window : container;
         scrollTarget.addEventListener('scroll', () => this.handleScrollNavigator());
 
+        // Check for recent data repair
+        if (localStorage.getItem('neuro_repair_success') === 'true') {
+            setTimeout(() => {
+                if (window.showNeuroToast) {
+                    window.showNeuroToast('✅ تم تنظيف شبراخيت ونقل البيانات للإسكندرية بنجاح.', 'success');
+                }
+                localStorage.removeItem('neuro_repair_success');
+            }, 3000);
+        }
+
         setTimeout(() => window.soundManager.playStartup(), 1000);
     }
 
@@ -370,7 +387,7 @@ class DashboardUI {
             }
 
             const lowerQuery = query.toLowerCase();
-            const patients = syncManager.getPatients().filter(p => {
+            const patients = syncManager.getPatientsByClinic().filter(p => {
                 const matchBasic = (p.name && p.name.toLowerCase().includes(lowerQuery)) ||
                     (p.phone && p.phone.includes(query)) ||
                     (p.patientCode && p.patientCode.toString().includes(query));
@@ -503,7 +520,7 @@ class DashboardUI {
                     return;
                 }
 
-                const patients = syncManager.getPatients().filter(p => p.name.includes(query));
+                const patients = syncManager.getPatientsByClinic().filter(p => p.name.includes(query));
                 if (patients.length > 0) {
                     this.elements.appointmentSuggestions.innerHTML = patients.map(p => {
                         // Fetch last 2 appointments for history
@@ -976,21 +993,18 @@ class DashboardUI {
         setInterval(update, 1000);
     }
 
-    addTx(type, amount, desc, beneficiary) {
-        syncManager.addTransaction({
-            type: type,
-            amount: amount,
-            description: desc,
-            beneficiary: beneficiary
-        });
-        this.updateStats();
-        this.renderFinanceTable();
-    }
 
     updateStats() {
+        // Force direct filtered fetch to ensure branch isolation
         const patients = syncManager.getPatientsByClinic();
         const appointments = syncManager.getAppointmentsByClinic();
         const transactions = syncManager.getTransactionsByClinic();
+
+        const activeClinic = syncManager.getActiveClinic();
+        const currency = activeClinic?.settings?.currency || 'EGP';
+
+        // Log for debugging (Hidden from user)
+        console.log(`Stats update for clinic: ${activeClinic?.name} (${activeClinic?.id})`);
 
         const now = new Date();
         const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
@@ -999,16 +1013,13 @@ class DashboardUI {
         const apptsToday = appointments.filter(a => {
             if (!a.datetime) return false;
             const appDateStr = a.datetime.split('T')[0].replace(/\//g, '-');
-            // Normalize parts to ensure leading zeros don't break comparison
             const [y, m, d] = appDateStr.split('-');
             const normalizedAppDate = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
             return normalizedAppDate === todayStr;
         }).length;
 
-        // Filter transactions for the current month correctly
         const monthlyTransactions = transactions.filter(t => {
             if (!t.date) return false;
-            // Normalize slashes to dashes for safe comparison
             const cleanDate = t.date.replace(/\//g, '-');
             return cleanDate.startsWith(currentMonthStr);
         });
@@ -1016,7 +1027,6 @@ class DashboardUI {
         const income = monthlyTransactions.filter(t => t.type === 'income').reduce((sum, t) => sum + parseFloat(t.amount || 0), 0);
         const expenses = monthlyTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + parseFloat(t.amount || 0), 0);
 
-        // Calculate total patient dues across active clinic
         let totalDues = 0;
         patients.forEach(p => {
             const ledger = syncManager.data.finances.ledger[p.id];
@@ -1029,68 +1039,15 @@ class DashboardUI {
 
         if (this.stats.patients) this.stats.patients.textContent = patients.length;
         if (this.stats.appointments) this.stats.appointments.textContent = apptsToday;
-        if (this.stats.income) this.stats.income.textContent = income.toLocaleString() + " EGP";
-        if (this.stats.expenses) this.stats.expenses.textContent = expenses.toLocaleString() + " EGP";
-        if (this.stats.dues) this.stats.dues.textContent = totalDues.toLocaleString() + " EGP";
+        if (this.stats.income) this.stats.income.textContent = income.toLocaleString() + " " + currency;
+        if (this.stats.expenses) this.stats.expenses.textContent = expenses.toLocaleString() + " " + currency;
+        if (this.stats.dues) this.stats.dues.textContent = totalDues.toLocaleString() + " " + currency;
         if (this.stats.netProfit) {
-            this.stats.netProfit.textContent = netProfit.toLocaleString() + " EGP";
+            this.stats.netProfit.textContent = netProfit.toLocaleString() + " " + currency;
             this.stats.netProfit.style.color = netProfit >= 0 ? '#10b981' : '#ef4444';
         }
     }
 
-    renderTodayAppointments() {
-        const appointments = syncManager.getAppointmentsByClinic();
-        const now = new Date();
-        const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-        const todayList = appointments.filter(a => {
-            if (!a.datetime) return false;
-            const appDateStr = a.datetime.split('T')[0].replace(/\//g, '-');
-            const [y, m, d] = appDateStr.split('-');
-            const normalizedAppDate = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-            return normalizedAppDate === todayStr;
-        });
-
-        if (!this.tables.todayAppointments) return;
-
-        this.tables.todayAppointments.innerHTML = todayList.map(app => {
-            const remaining = parseFloat(app.cost || 0) - parseFloat(app.paid || 0);
-            let statusHTML = `
-                <div style="font-size: 0.85rem; line-height: 1.4;">
-                    <div style="color: #94a3b8;">إجمالي: ${app.cost}</div>
-                    <div style="color: #10b981;">مدفوع: ${app.paid}</div>
-                    ${remaining > 0 ? `<div style="color: #ef4444; font-weight: 700;">باقي: ${remaining}</div>` : '<div style="color: #10b981; font-weight: 700;">خالص</div>'}
-                </div>
-            `;
-
-            return `
-            <tr onclick="window.patientFileUI.open('${app.patientId}')" style="cursor:pointer">
-                <td>
-                    <div style="display: flex; align-items: center; gap: 12px;">
-                        <div style="width: 32px; height: 32px; border-radius: 8px; background: #0f172a; border: 1px solid var(--accent-blue); display:flex; align-items:center; justify-content:center; color: var(--accent-blue); font-size: 0.8rem; box-shadow: 0 0 10px rgba(0, 234, 255, 0.1);">
-                            ${app.patientName ? app.patientName.charAt(0) : '?'}
-                        </div>
-                        <strong style="color: #fff;">${app.patientName || 'مجهول'}</strong>
-                    </div>
-                </td>
-                <td style="color: var(--accent-glow); font-weight: 600;">${app.datetime.split('T')[1]}</td>
-                <td>${app.service}</td>
-                <td>${statusHTML}</td>
-                <td>
-                    <button class="btn-edit-tool" onclick="event.stopPropagation(); window.dashboardUI.editAppointment('${app.id}')" title="تعديل" style="margin-left:5px;">
-                        <i class="fa-solid fa-pen"></i>
-                    </button>
-                     <button class="btn-edit-tool" onclick="event.stopPropagation(); window.dashboardUI.deleteAppointment('${app.id}')" title="حذف" style="margin-left:8px; color: #ef4444; border-color: rgba(239, 68, 68, 0.3);">
-                        <i class="fa-solid fa-trash"></i>
-                    </button>
-                    <i class="fa-solid fa-chevron-left" style="color: var(--accent-blue);"></i>
-                </td>
-            </tr>
-        `}).join('');
-
-        if (todayList.length === 0) {
-            this.tables.todayAppointments.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:20px;">لا يوجد مواعيد لليوم</td></tr>';
-        }
-    }
 
     renderAllAppointments() {
         const appointments = syncManager.getAppointmentsByClinic();
@@ -1271,21 +1228,6 @@ class DashboardUI {
         modal.style.display = 'flex';
     }
 
-    editTransaction(id) {
-        const tx = syncManager.data.finances.transactions.find(t => t.id === id);
-        if (!tx) return;
-
-        const newDesc = prompt("تعديل البيان:", tx.description);
-        const newAmount = prompt("تعديل المبلغ:", tx.amount);
-
-        if (newDesc !== null && newAmount !== null) {
-            tx.description = newDesc;
-            tx.amount = newAmount;
-            syncManager.saveLocal();
-            this.renderFinanceTable();
-            this.updateStats();
-        }
-    }
 
     editAppointment(id) {
         const app = syncManager.data.appointments.find(a => a.id === id);
@@ -1346,36 +1288,7 @@ class DashboardUI {
 
 
 
-    initSettingsLogic() {
-        // logic removed as per user request to hide these settings
-    }
 
-    loadSettingsView() {
-        // Render users table if admin
-        if (window.authManager.isAdmin()) {
-            this.renderUsers();
-        }
-    }
-
-    deleteUser(userId) {
-        if (!window.authManager.isAdmin()) {
-            window.soundManager.playError();
-            window.showNeuroToast('عفواً، صلاحية حذف الموظفين للمدير فقط.', 'error');
-            return;
-        }
-        window.soundManager.playDeleteWarning();
-        showNeuroModal(
-            'حذف الموظف',
-            'هل أنت متأكد؟ سيفقد الموظف صلاحية الدخول فوراً.',
-            () => {
-                syncManager.deleteUser(userId);
-                this.renderUsers();
-                window.soundManager.playSuccess();
-                showNeuroModal('تم الحذف', 'تم حذف الموظف بنجاح.', null, false);
-            },
-            true
-        );
-    }
 
     deletePatientDirect(id) {
         if (!window.authManager.isAdmin()) {
@@ -1394,7 +1307,7 @@ class DashboardUI {
     }
 
     renderTodayAppointments() {
-        const apps = syncManager.data.appointments || [];
+        const apps = syncManager.getAppointmentsByClinic();
         const today = new Date().toDateString();
         const todaysList = apps.filter(a => new Date(a.datetime).toDateString() === today);
         todaysList.sort((a, b) => new Date(a.datetime) - new Date(b.datetime));
@@ -1498,13 +1411,16 @@ class DashboardUI {
             return false;
         }
 
+        const activeClinicId = syncManager.data.settings.activeClinicId || 'clinic-default';
+
         const tx = {
             id: crypto.randomUUID(),
             date: new Date().toISOString(),
             type: type, // 'income' or 'expense'
             amount: parseFloat(amount),
             description: description,
-            beneficiary: beneficiary || 'Clinic'
+            beneficiary: beneficiary || 'Clinic',
+            clinicId: activeClinicId
         };
 
         syncManager.data.finances.transactions.push(tx);
@@ -1601,60 +1517,13 @@ class DashboardUI {
     }
 
     initUsersAndLogs() {
-        // Add Employee Logic (Now inside settings)
-        const btnAdd = document.getElementById('btn-add-employee');
-        if (btnAdd) {
-            btnAdd.onclick = () => {
-                const modalHTML = `
-                    <div style="text-align: right;">
-                        <div class="form-group" style="margin-bottom: 20px;">
-                            <label style="display: block; margin-bottom: 8px; color: var(--text-primary); font-weight: 800;">الاسم الكامل للموظف</label>
-                            <input type="text" id="user-new-name" class="neuro-input" style="width:100%; padding: 12px;" placeholder="مثال: د. أحمد خليل">
-                        </div>
-                        <div class="form-group" style="margin-bottom: 20px;">
-                            <label style="display: block; margin-bottom: 8px; color: var(--text-primary); font-weight: 800;">اسم المستخدم (Login)</label>
-                            <input type="text" id="user-new-username" class="neuro-input" style="width:100%; padding: 12px;" placeholder="اسم الدخول">
-                        </div>
-                        <div class="form-group" style="margin-bottom: 20px;">
-                            <label style="display: block; margin-bottom: 8px; color: var(--text-primary); font-weight: 800;">كلمة المرور</label>
-                            <input type="password" id="user-new-password" class="neuro-input" style="width:100%; padding: 12px;" placeholder="****">
-                        </div>
-                        <div class="form-group" style="margin-bottom: 20px;">
-                            <label style="display: block; margin-bottom: 8px; color: var(--text-primary); font-weight: 800;">مستوى الصلاحية</label>
-                            <select id="user-new-role" class="neuro-input" style="width:100%; height: 50px; padding: 0 15px;">
-                                <option value="doctor">طبيب (صلاحية طبية كاملة)</option>
-                                <option value="secretary">سكرتارية (إدارة مواعيد وحسابات)</option>
-                                <option value="admin">مدير (تحكم شامل في النظام)</option>
-                            </select>
-                        </div>
-                    </div>
-                `;
-
-                showNeuroModal('إضافة موظف جديد', modalHTML, () => {
-                    const name = document.getElementById('user-new-name').value;
-                    const username = document.getElementById('user-new-username').value;
-                    const password = document.getElementById('user-new-password').value;
-                    const role = document.getElementById('user-new-role').value;
-
-                    if (!name || !username || !password) {
-                        window.showNeuroToast('يرجى إكمال كافة البيانات', 'error');
-                        return false;
-                    }
-
-                    syncManager.addUser({ name, username, password, role });
-                    this.renderUsers();
-                    window.soundManager.playSuccess();
-                    return true;
-                });
-            };
-        }
+        // Legacy function - no longer needed
+        // User management is now handled through openAddUserModal() in settings
     }
 
     renderUsers() {
         const activeClinicId = syncManager.data.settings.activeClinicId;
-        const users = (syncManager.data.users || []).filter(u =>
-            u.username === 'admin' || u.assignedClinics?.includes(activeClinicId)
-        );
+        const users = syncManager.data.users || [];
         const container = document.getElementById('users-list-container');
         if (!container) return;
 

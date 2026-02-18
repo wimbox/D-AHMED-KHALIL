@@ -1142,6 +1142,137 @@ body {
     box-shadow: 0 0 15px rgba(0, 234, 255, 0.2);
 }
 
+/* Modern Clinic Switcher Dropdown */
+.clinic-switcher-modern {
+    position: relative;
+    margin-left: 20px;
+    z-index: 2000;
+}
+
+.clinic-drop-btn {
+    background: rgba(15, 23, 42, 0.6);
+    border: 2px solid var(--accent-blue);
+    border-radius: 12px;
+    padding: 8px 18px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: var(--accent-blue);
+    font-size: 1.05rem;
+    font-weight: 800;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    backdrop-filter: blur(10px);
+    box-shadow: 0 0 15px rgba(0, 234, 255, 0.1);
+}
+
+.clinic-drop-btn:hover {
+    background: rgba(0, 234, 255, 0.1);
+    box-shadow: 0 0 25px rgba(0, 234, 255, 0.2);
+    transform: translateY(-1px);
+}
+
+.clinic-drop-btn i {
+    font-size: 1.1rem;
+}
+
+.clinic-drop-btn .chelsea-icon {
+    font-size: 0.8rem;
+    opacity: 0.7;
+    transition: transform 0.3s ease;
+}
+
+.clinic-switcher-modern.active .chelsea-icon {
+    transform: rotate(180deg);
+}
+
+.clinic-drop-menu {
+    position: absolute;
+    top: calc(100% + 10px);
+    right: 0;
+    width: 240px;
+    background: rgba(15, 23, 42, 0.95);
+    backdrop-filter: blur(25px);
+    border: 1px solid var(--accent-blue);
+    border-radius: 18px;
+    padding: 10px;
+    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.6);
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(10px);
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.clinic-switcher-modern.active .clinic-drop-menu {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+.clinic-item {
+    padding: 14px 18px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    cursor: pointer;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    color: #fff;
+    font-weight: 600;
+    border: 1px solid transparent;
+}
+
+.clinic-item:hover {
+    background: rgba(0, 234, 255, 0.08);
+    border-color: rgba(0, 234, 255, 0.2);
+    padding-right: 22px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+}
+
+.clinic-item.active {
+    background: linear-gradient(135deg, var(--accent-blue), #0099ff);
+    color: #000;
+    box-shadow: 0 0 20px rgba(0, 234, 255, 0.4);
+}
+
+.clinic-item i {
+    font-size: 1.1rem;
+    filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.2));
+}
+
+.clinic-item .active-check {
+    font-size: 0.9rem;
+    animation: scaleCheck 0.3s ease;
+}
+
+@keyframes scaleCheck {
+    from {
+        transform: scale(0);
+    }
+
+    to {
+        transform: scale(1);
+    }
+}
+
+/* Add a pulse to the icon in the button */
+.clinic-drop-btn i:first-child {
+    animation: softPulse 2s infinite alternate;
+}
+
+@keyframes softPulse {
+    from {
+        opacity: 0.8;
+        filter: drop-shadow(0 0 2px var(--accent-blue));
+    }
+
+    to {
+        opacity: 1;
+        filter: drop-shadow(0 0 8px var(--accent-blue));
+    }
+}
+
 /* User Badge from AuthManager */
 .user-badge {
     background: rgba(15, 23, 42, 0.6);

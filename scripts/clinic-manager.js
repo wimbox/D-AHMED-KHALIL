@@ -14,41 +14,90 @@ class ClinicManager {
     }
 
     populateClinicSelector() {
-        const selector = document.getElementById('clinic-selector');
-        if (!selector) return;
+        const activeNameDisplay = document.getElementById('active-clinic-name');
+        const menu = document.getElementById('clinic-drop-menu');
+        if (!menu || !activeNameDisplay) return;
 
         const clinics = syncManager.getClinics();
         const activeClinic = syncManager.getActiveClinic();
+        const currentUser = window.authManager?.currentUser;
 
-        selector.innerHTML = clinics.map(clinic => `
-            <option value="${clinic.id}" ${clinic.id === activeClinic.id ? 'selected' : ''}>
-                ${clinic.name}
-            </option>
-        `).join('');
+        // Filter clinics based on user permissions
+        const allowedClinics = currentUser?.role === 'admin'
+            ? clinics
+            : clinics.filter(c => currentUser?.assignedClinics?.includes(c.id));
+
+        // Update active name
+        activeNameDisplay.textContent = activeClinic.name;
+
+        // Populate menu items
+        menu.innerHTML = allowedClinics.map(clinic => {
+            const isActive = clinic.id === activeClinic.id;
+            return `
+                <div class="clinic-item ${isActive ? 'active' : ''}" data-id="${clinic.id}">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <i class="fa-solid ${isActive ? 'fa-hospital-user' : 'fa-hospital'}"></i>
+                        <span>${clinic.name}</span>
+                    </div>
+                    ${isActive ? '<i class="fa-solid fa-check active-check"></i>' : ''}
+                </div>
+            `;
+        }).join('');
+
+        // Attach click listeners to new items
+        menu.querySelectorAll('.clinic-item').forEach(item => {
+            item.onclick = (e) => {
+                e.stopPropagation();
+                const clinicId = item.dataset.id;
+                if (clinicId !== activeClinic.id) {
+                    this.switchClinic(clinicId);
+                }
+                document.getElementById('clinic-switcher-wrapper').classList.remove('active');
+            };
+        });
     }
 
     attachEventListeners() {
-        const confirmBtn = document.getElementById('btn-confirm-clinic');
-        const selector = document.getElementById('clinic-selector');
+        const wrapper = document.getElementById('clinic-switcher-wrapper');
+        const btn = document.getElementById('active-clinic-display');
 
-        if (confirmBtn && selector) {
-            confirmBtn.onclick = () => {
-                this.switchClinic(selector.value);
+        if (btn && wrapper) {
+            btn.onclick = (e) => {
+                e.stopPropagation();
+                wrapper.classList.toggle('active');
             };
+
+            // Close on outside click or Escape key
+            document.addEventListener('click', (e) => {
+                if (!wrapper.contains(e.target)) {
+                    wrapper.classList.remove('active');
+                }
+            });
+
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    wrapper.classList.remove('active');
+                }
+            });
         }
     }
 
     switchClinic(clinicId) {
         if (syncManager.setActiveClinic(clinicId)) {
-            window.soundManager?.playSuccess();
+            // Play success sound
+            if (window.soundManager) window.soundManager.playSuccess();
 
             const clinic = syncManager.getActiveClinic();
-            window.showNeuroToast(`جاري التحويل إلى: ${clinic.name}...`, 'info');
 
-            // Use a slight delay then reload to ensure all data is refreshed perfectly
+            // Show premium loading toast
+            if (window.showNeuroToast) {
+                window.showNeuroToast(`جاري التحويل إلى عيادة: ${clinic.name}...`, 'info');
+            }
+
+            // Snappy reload to apply branch state
             setTimeout(() => {
                 window.location.reload();
-            }, 1000);
+            }, 600);
         }
     }
 

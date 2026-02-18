@@ -105,28 +105,61 @@ class SyncManager {
             // Persistence: Force save back to localStorage if we had to fix things
             localStorage.setItem(this.DB_KEY, JSON.stringify(parsed));
 
-            // --- Data Self-Healing Migration (Fix for discrepancies) ---
+            // --- ULTIMATE Data Self-Healing (Isolation Fix) ---
             let repaired = false;
-            const defaultClinicId = parsed.settings?.activeClinicId || 'clinic-default';
+            const alexClinicId = 'clinic-default';
 
-            // 1. Repair Patients
-            (parsed.patients || []).forEach(p => {
-                if (!p.clinicId) { p.clinicId = defaultClinicId; repaired = true; }
-            });
-            // 2. Repair Appointments
-            (parsed.appointments || []).forEach(a => {
-                if (!a.clinicId) { a.clinicId = defaultClinicId; repaired = true; }
-            });
-            // 3. Repair Transactions
-            if (parsed.finances?.transactions) {
-                parsed.finances.transactions.forEach(t => {
-                    if (!t.clinicId) { t.clinicId = defaultClinicId; repaired = true; }
+            // FORCE CLEANUP: Any data that isn't explicitly in Alexandria 
+            // but was created before we stabilized the branches, MUST be moved back.
+            if (!parsed.settings.hasFixedShubrakhitOverlap_FINAL_V3) {
+                console.log("SyncManager: EXECUTING GLOBAL DATA RESET TO ALEXANDRIA...");
+
+                // 1. Reset Patients
+                (parsed.patients || []).forEach(p => {
+                    if (p.clinicId !== alexClinicId) {
+                        p.clinicId = alexClinicId;
+                        repaired = true;
+                    }
                 });
+                // 2. Reset Appointments
+                (parsed.appointments || []).forEach(a => {
+                    if (a.clinicId !== alexClinicId) {
+                        a.clinicId = alexClinicId;
+                        repaired = true;
+                    }
+                });
+                // 3. Reset Transactions
+                if (parsed.finances?.transactions) {
+                    parsed.finances.transactions.forEach(t => {
+                        if (t.clinicId !== alexClinicId) {
+                            t.clinicId = alexClinicId;
+                            repaired = true;
+                        }
+                    });
+                }
+
+                parsed.settings.hasFixedShubrakhitOverlap_FINAL_V3 = true;
+                repaired = true;
+                localStorage.setItem('neuro_repair_success', 'true');
+            } else {
+                // Ongoing safety: Every single time we load, ensure isolation
+                (parsed.patients || []).forEach(p => {
+                    if (!p.clinicId || p.clinicId === 'undefined') { p.clinicId = alexClinicId; repaired = true; }
+                });
+                (parsed.appointments || []).forEach(a => {
+                    if (!a.clinicId || a.clinicId === 'undefined') { a.clinicId = alexClinicId; repaired = true; }
+                });
+                if (parsed.finances?.transactions) {
+                    parsed.finances.transactions.forEach(t => {
+                        if (!t.clinicId || t.clinicId === 'undefined') { t.clinicId = alexClinicId; repaired = true; }
+                    });
+                }
             }
 
             if (repaired) {
-                console.log("SyncManager: Data self-healed (assigned clinic IDs to legacy records).");
+                console.log("SyncManager: Global Data Migration Successful.");
                 localStorage.setItem(this.DB_KEY, JSON.stringify(parsed));
+                this.shouldForceStatsRefresh = true; // NEW FLAG
             }
 
             if (parsed.settings.lastPatientCode === undefined || parsed.settings.lastPatientCode < 100) {
@@ -240,6 +273,12 @@ class SyncManager {
                         console.log("SyncManager: Global financial recalculation completed.");
                     }
                 }, 1000);
+            }
+
+            // --- Force Sticky Clinic (Persistent across Refreshes) ---
+            const stickyClinicId = localStorage.getItem('neuro_active_clinic_id');
+            if (stickyClinicId && parsed.clinics.find(c => c.id === stickyClinicId)) {
+                parsed.settings.activeClinicId = stickyClinicId;
             }
 
             return parsed;
@@ -511,36 +550,104 @@ class SyncManager {
         console.log("Cloud Observer: Starting real-time listener...");
         db.collection('app_data').doc('clinic_master_data').onSnapshot((doc) => {
             if (doc.exists) {
-                const cloudData = doc.data();
+                let cloudData = doc.data();
+
+                // --- ATOMIC DEEP CLEANING (Real-time Cloud Guard) ---
+                const alexId = 'clinic-default';
+                let repairedInCloud = false;
+
+                // 1. Repair Patients (Only those with NO ID)
+                (cloudData.patients || []).forEach(p => {
+                    if (!p.clinicId || p.clinicId === 'undefined') { p.clinicId = alexId; repairedInCloud = true; }
+                });
+                // 2. Repair Appointments (Only those with NO ID)
+                (cloudData.appointments || []).forEach(a => {
+                    if (!a.clinicId || a.clinicId === 'undefined') { a.clinicId = alexId; repairedInCloud = true; }
+                });
+                // 3. Repair Transactions (Only those with NO ID)
+                if (cloudData.finances?.transactions) {
+                    cloudData.finances.transactions.forEach(t => {
+                        if (!t.clinicId || t.clinicId === 'undefined') { t.clinicId = alexId; repairedInCloud = true; }
+                    });
+                }
+
+                if (repairedInCloud) {
+                    console.log("Cloud Observer: Legacy data detected in cloud stream. Sanitized in-flight.");
+                    cloudData.settings.hasFixedShubrakhitOverlap_FINAL_V3 = true;
+                }
 
                 // Compare timestamps to decide if we should update local state
-                // Only pull if cloud data is newer than our last session's data
                 const cloudTime = cloudData.updatedAt?.toDate?.()?.getTime() || 0;
                 const lastSyncTime = new Date(this.data.settings?.lastSync || 0).getTime();
                 const lastLocalUpdateTime = new Date(this.data.settings?.lastLocalUpdate || 0).getTime();
 
-                // Logic: Only pull if cloud is newer than our last session's sync 
-                // OR if this is a fresh install (isNewSession)
                 if (this.isNewSession || (cloudTime > lastSyncTime && cloudTime > lastLocalUpdateTime)) {
-
-                    // --- SAFETY CHECK: Prevent overwriting full data with empty cloud data ---
                     if (cloudData.patients && cloudData.patients.length === 0 && this.data.patients.length > 10) {
-                        console.warn("Cloud Observer: Blocked merge of empty cloud data over populated local data.");
+                        console.warn("Cloud Observer: Blocked merge of empty cloud data.");
                     } else {
-                        console.log("Cloud Observer: Newer data found in cloud. Merging...");
+                        console.log("Cloud Observer: Merging sanitized cloud data...");
+
+                        // VITAL PERSISTENCE FIX: Don't let background sync change our branch
+                        const currentActiveId = this.data?.settings?.activeClinicId || localStorage.getItem('neuro_active_clinic_id') || alexId;
+
+                        // --- SMART FIELD MERGE (Name Recovery Logic) ---
+                        // If local has patients without names but cloud has them, recover names
+                        if (this.data.patients && this.data.patients.length > 0) {
+                            cloudData.patients.forEach(cloudP => {
+                                const localP = this.data.patients.find(p => p.id === cloudP.id);
+                                if (localP && !localP.name && cloudP.name) {
+                                    console.log(`Cloud Observer: Recovering missing name for patient ${cloudP.id} (${cloudP.name})`);
+                                    localP.name = cloudP.name;
+                                    localP.patientCode = cloudP.patientCode; // Restore code too
+                                }
+                            });
+                        }
+
                         this.data = cloudData;
+
+                        // Restore the locally selected branch
+                        this.data.settings.activeClinicId = currentActiveId;
+
                         localStorage.setItem(this.DB_KEY, JSON.stringify(this.data));
+
+                        // Force Full UI refresh (Boxes + Tables)
+                        if (window.dashboardUI) {
+                            window.dashboardUI.updateStats();
+                            window.dashboardUI.renderTodayAppointments();
+                        }
+
                         this.notifyDataChanged();
+
+                        // If it was dirty in cloud, push our clean version back immediately
+                        if (repairedInCloud) {
+                            setTimeout(() => this.triggerCloudSync(), 2000);
+                        }
                     }
                     this.isNewSession = false;
                 } else {
-                    console.log("Cloud Observer: Cloud update ignored (we have newer or equal local data).");
-                }
+                    // EVEN IF LOCAL IS NEWER: Still check for missing names to recover
+                    let recoveredCount = 0;
+                    cloudData.patients.forEach(cloudP => {
+                        const localP = this.data.patients.find(p => p.id === cloudP.id);
+                        if (localP && (!localP.name || localP.name === 'غير معروف') && cloudP.name) {
+                            localP.name = cloudP.name;
+                            localP.patientCode = cloudP.patientCode;
+                            recoveredCount++;
+                        }
+                    });
 
-                // Mark pull as done to unlock pushes
+                    if (recoveredCount > 0) {
+                        console.log(`Cloud Observer: Proactively recovered ${recoveredCount} missing names despite local being newer.`);
+                        this.saveLocal();
+                        if (window.dashboardUI) {
+                            window.dashboardUI.renderTodayAppointments();
+                            window.dashboardUI.updateStats();
+                        }
+                    }
+                    console.log("Cloud Observer: Multi-Clinic State Verified.");
+                }
                 this.isPullDone = true;
             } else {
-                // Document doesn't exist in cloud yet
                 console.log("Cloud Observer: Cloud document is empty.");
                 this.isPullDone = true;
                 this.isNewSession = false;
@@ -747,6 +854,7 @@ class SyncManager {
         const clinic = this.data.clinics.find(c => c.id === clinicId);
         if (clinic) {
             this.data.settings.activeClinicId = clinicId;
+            localStorage.setItem('neuro_active_clinic_id', clinicId); // PERSISTENT OVERRIDE
             this.saveLocal();
             return true;
         }
@@ -818,20 +926,45 @@ class SyncManager {
         return { success: true };
     }
 
-    // Get filtered data by active clinic
+    // --- Get filtered data by active clinic (Aggressive Isolation) ---
     getPatientsByClinic(clinicId = null) {
         const targetClinic = clinicId || this.data.settings.activeClinicId;
-        return this.data.patients.filter(p => p.clinicId === targetClinic);
+        const alexId = 'clinic-default';
+
+        return this.data.patients.filter(p => {
+            // Alexandria Case: Show everything that isn't tagged elsewhere or is tagged as default
+            if (targetClinic === alexId) {
+                return !p.clinicId || p.clinicId === alexId;
+            }
+            // Other Branches (e.g., Shubrakhit): ONLY show what is explicitly tagged for it
+            return p.clinicId === targetClinic;
+        });
     }
 
     getAppointmentsByClinic(clinicId = null) {
         const targetClinic = clinicId || this.data.settings.activeClinicId;
-        return this.data.appointments.filter(a => a.clinicId === targetClinic);
+        const alexId = 'clinic-default';
+
+        return this.data.appointments.filter(a => {
+            // STRICT ISOLATION RULE
+            if (targetClinic === alexId) {
+                return !a.clinicId || a.clinicId === alexId;
+            }
+            // Secondary branches: MUST have the tag, no exceptions.
+            return a.clinicId === targetClinic;
+        });
     }
 
     getTransactionsByClinic(clinicId = null) {
         const targetClinic = clinicId || this.data.settings.activeClinicId;
-        return this.data.finances.transactions.filter(t => t.clinicId === targetClinic);
+        const alexId = 'clinic-default';
+
+        return this.data.finances.transactions.filter(t => {
+            if (targetClinic === alexId) {
+                return !t.clinicId || t.clinicId === alexId || !t.clinicId;
+            }
+            return t.clinicId === targetClinic;
+        });
     }
 
     // --- Cloud Sync ---
@@ -869,6 +1002,25 @@ class SyncManager {
 
             // CLONE data and clean it for Firestore (no undefined values)
             const cleanData = JSON.parse(JSON.stringify(this.data));
+
+            // --- FINAL INTEGRITY GUARD (Pre-push check) ---
+            // If we are pushing names that are 'undefined' or 'غير معروف' but the cloud had real names,
+            // we must block this push and force a refresh.
+            // (Only for existing patients)
+            const cloudDoc = await db.collection('app_data').doc(docId).get();
+            if (cloudDoc.exists) {
+                const cloudPatients = cloudDoc.data().patients || [];
+                const hasDegradedData = cleanData.patients.some(p => {
+                    const cp = cloudPatients.find(c => c.id === p.id);
+                    return cp && cp.name && (!p.name || p.name === 'غير معروف');
+                });
+
+                if (hasDegradedData) {
+                    console.error("Cloud sync: PUSH BLOCKED. Local names are missing while Cloud has them. Refreshing...");
+                    this.isPullDone = false; // Force re-pull in next tick
+                    return false;
+                }
+            }
 
             await db.collection('app_data').doc(docId).set({
                 ...cleanData,
@@ -930,17 +1082,56 @@ class SyncManager {
 
             const doc = await db.collection('app_data').doc('clinic_master_data').get();
             if (doc.exists) {
-                const cloudData = doc.data();
+                let cloudData = doc.data();
                 if (cloudData.patients) {
-                    // Convert Firestore Timestamps to ISO strings for our local data model
+                    // --- ATOMIC DEEP CLEANING (Cloud-to-Local Guard) ---
+                    const alexId = 'clinic-default';
+
+                    // 1. Repair Patients from Cloud (Only those with NO ID)
+                    (cloudData.patients || []).forEach(p => {
+                        if (!p.clinicId || p.clinicId === 'undefined') p.clinicId = alexId;
+                    });
+                    // 2. Repair Appointments from Cloud (Only those with NO ID)
+                    (cloudData.appointments || []).forEach(a => {
+                        if (!a.clinicId || a.clinicId === 'undefined') a.clinicId = alexId;
+                    });
+                    // 3. Repair Transactions from Cloud (Only those with NO ID)
+                    if (cloudData.finances?.transactions) {
+                        cloudData.finances.transactions.forEach(t => {
+                            if (!t.clinicId || t.clinicId === 'undefined') t.clinicId = alexId;
+                        });
+                    }
+
+                    // Conversion for consistency
                     if (cloudData.updatedAt?.toDate) {
                         cloudData.settings.lastSync = cloudData.updatedAt.toDate().toISOString();
                     }
 
+                    // Record that cleanup is done for this session
+                    cloudData.settings.hasFixedShubrakhitOverlap_FINAL_V3 = true;
+
+                    // --- VITAL PERSISTENCE FIX ---
+                    // Save the current locally selected clinic before overwriting with cloud data
+                    const currentActiveId = this.data?.settings?.activeClinicId || localStorage.getItem('neuro_active_clinic_id') || alexId;
+
                     this.data = cloudData;
+
+                    // RE-APPLY LOCALLY SELECTED CLINIC (Never let cloud change our branch)
+                    this.data.settings.activeClinicId = currentActiveId;
+
                     localStorage.setItem(this.DB_KEY, JSON.stringify(this.data));
-                    console.log("Cloud pull: Applied successfully.");
+
+                    this.isPullDone = true;
+                    console.log("Cloud pull: Applied and Sanitized successfully.");
+
+                    // Force Stats Refresh in Dashboard if active
+                    if (window.dashboardUI) window.dashboardUI.updateStats();
+
                     this.notifyDataChanged();
+
+                    // TRIPLE SECURITY: Immediately push the cleaned version back to cloud
+                    setTimeout(() => this.triggerCloudSync(), 1000);
+
                     return true;
                 }
             }
