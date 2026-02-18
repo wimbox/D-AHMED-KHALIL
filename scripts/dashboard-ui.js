@@ -161,7 +161,7 @@ class DashboardUI {
         this.initGlobalSearch();
         this.initAppointmentLogic();
         this.initPatientLogic();
-        this.initSettingsLogic();
+        // this.initSettingsLogic(); // Missing method causing crash
         this.startModalClock();
 
         // Populate Time Selects
