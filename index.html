@@ -47,7 +47,7 @@
                 </a>
                 <a href="javascript:void(0)" class="nav-item" data-view="templates" id="btn-templates">
                     <i class="fa-solid fa-file-medical"></i>
-                    <span>مكتبة الروشتات</span>
+                    <span>توصيات علاجية</span>
                 </a>
                 <a href="javascript:void(0)" class="nav-item logout-link" id="btn-logout"
                     onclick="window.authManager.logout()">
@@ -459,10 +459,16 @@
                 <div id="view-templates" class="hidden">
                     <div class="data-card">
                         <div class="section-header">
-                            <h2><i class="fa-solid fa-file-medical"></i> مكتبة الروشتات الجاهزة</h2>
-                            <button class="btn-neuro" id="btn-add-template">
-                                <i class="fa-solid fa-plus"></i> قالب جديد
-                            </button>
+                            <h2><i class="fa-solid fa-file-medical"></i> توصيات علاجية جاهزة</h2>
+                            <div style="display: flex; gap: 10px;">
+                                <a href="editor.html" class="btn-neuro"
+                                    style="background: #3b82f6; text-decoration: none; color: white; display: flex; align-items: center; gap: 8px;">
+                                    <i class="fa-solid fa-file-signature"></i> فتح محرر الروشتات
+                                </a>
+                                <button class="btn-neuro" id="btn-add-template">
+                                    <i class="fa-solid fa-plus"></i> قالب جديد
+                                </button>
+                            </div>
                         </div>
 
                         <div style="margin-bottom: 20px;">

@@ -629,6 +629,29 @@ class App {
                 }
             });
         }
+
+        // --- NEW: Load Pending Content from Dashboard (Medical Recommendations) ---
+        const pendingContent = localStorage.getItem('neuro_pending_prescription');
+        if (pendingContent) {
+            const mainArea = document.getElementById('main-content-area');
+            if (mainArea) {
+                // If the area already has content, add it after a break, otherwise set it
+                if (!mainArea.innerHTML.trim()) {
+                    mainArea.innerHTML = `<div>${pendingContent}</div>`;
+                } else {
+                    mainArea.innerHTML += `<div><br></div><div>${pendingContent}</div>`;
+                }
+
+                // Clear the trigger so it doesn't double-paste on refresh
+                localStorage.removeItem('neuro_pending_prescription');
+
+                // Trigger auto-save to ensure it's kept
+                this.editor.saveToStorage();
+
+                // Visual feedback (Using showCustomModal if showNeuroToast is dashboard-only)
+                console.log("Found pending recommendation content, injected to canvas.");
+            }
+        }
     }
 
     initDatabaseTools() {

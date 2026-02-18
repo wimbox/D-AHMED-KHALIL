@@ -26,6 +26,53 @@ class TemplatesUI {
         });
     }
 
+
+
+    renderTemplateCard(template) {
+        const preview = template.content.substring(0, 120) + (template.content.length > 120 ? '...' : '');
+        const usageText = template.usageCount === 0 ? 'لم يُستخدم بعد' : `استُخدم ${template.usageCount} مرة`;
+
+        return `
+            <div class="template-card" style="background: rgba(0, 0, 0, 0.2); border: 1px solid rgba(0, 234, 255, 0.1); border-radius: 15px; padding: 20px; transition: all 0.3s; cursor: pointer;">
+                <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 12px;">
+                    <h3 style="color: #00eaff; font-size: 1.2rem; font-weight: 700; margin: 0;">${template.name}</h3>
+                    <span style="background: rgba(0, 234, 255, 0.1); color: #00eaff; padding: 4px 10px; border-radius: 8px; font-size: 0.75rem; font-weight: 600;">
+                        ${usageText}
+                    </span>
+                </div>
+
+                ${template.notes ? `<p style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 12px; font-style: italic;">${template.notes}</p>` : ''}
+
+                <div style="background: rgba(255, 255, 255, 0.03); padding: 12px; border-radius: 10px; margin-bottom: 15px; max-height: 100px; overflow-y: auto;">
+                    <pre style="color: #e2e8f0; white-space: pre-wrap; font-size: 0.85rem; margin: 0; font-family: 'Tajawal', sans-serif;">${preview}</pre>
+                </div>
+
+                <div style="display: flex; gap: 8px;">
+                    <button class="btn-neuro template-direct-send-btn" data-id="${template.id}" 
+                        style="flex: 1.2; padding: 10px; font-size: 0.85rem; background: #3b82f6; animation: none;">
+                        <i class="fa-solid fa-share-right"></i> إرسال للروشيته
+                    </button>
+                    <button class="btn-neuro template-use-btn" data-id="${template.id}" 
+                        style="flex: 1; padding: 10px; font-size: 0.85rem; background: #10b981; animation: none;">
+                        <i class="fa-solid fa-copy"></i> نسخ محتوى
+                    </button>
+                    <button class="btn-edit-tool template-edit-btn" data-id="${template.id}" 
+                        title="تعديل" style="padding: 10px 12px;">
+                        <i class="fa-solid fa-pen"></i>
+                    </button>
+                    <button class="btn-edit-tool template-delete-btn" data-id="${template.id}" 
+                        title="حذف" style="padding: 10px 12px; color: #ef4444; border-color: rgba(239, 68, 68, 0.3);">
+                        <i class="fa-solid fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+        `;
+    }
+
+    handleSearch(query) {
+        this.renderTemplates(query.trim());
+    }
+
     renderTemplates(filter = '') {
         const grid = document.getElementById('templates-grid');
         const empty = document.getElementById('templates-empty');
@@ -50,6 +97,10 @@ class TemplatesUI {
             btn.onclick = () => this.useTemplate(btn.dataset.id);
         });
 
+        grid.querySelectorAll('.template-direct-send-btn').forEach(btn => {
+            btn.onclick = () => this.sendToPrescriptionDirectly(btn.dataset.id);
+        });
+
         grid.querySelectorAll('.template-edit-btn').forEach(btn => {
             btn.onclick = () => this.editTemplate(btn.dataset.id);
         });
@@ -59,45 +110,23 @@ class TemplatesUI {
         });
     }
 
-    renderTemplateCard(template) {
-        const preview = template.content.substring(0, 120) + (template.content.length > 120 ? '...' : '');
-        const usageText = template.usageCount === 0 ? 'لم يُستخدم بعد' : `استُخدم ${template.usageCount} مرة`;
+    sendToPrescriptionDirectly(id) {
+        const template = window.prescriptionTemplates.getById(id);
+        if (!template) return;
 
-        return `
-            <div class="template-card" style="background: rgba(0, 0, 0, 0.2); border: 1px solid rgba(0, 234, 255, 0.1); border-radius: 15px; padding: 20px; transition: all 0.3s; cursor: pointer;">
-                <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 12px;">
-                    <h3 style="color: #00eaff; font-size: 1.2rem; font-weight: 700; margin: 0;">${template.name}</h3>
-                    <span style="background: rgba(0, 234, 255, 0.1); color: #00eaff; padding: 4px 10px; border-radius: 8px; font-size: 0.75rem; font-weight: 600;">
-                        ${usageText}
-                    </span>
-                </div>
+        // Save to temporary storage for the editor to pickup
+        localStorage.setItem('neuro_pending_prescription', template.content);
 
-                ${template.notes ? `<p style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 12px; font-style: italic;">${template.notes}</p>` : ''}
+        // Increase usage
+        window.prescriptionTemplates.incrementUsage(id);
 
-                <div style="background: rgba(255, 255, 255, 0.03); padding: 12px; border-radius: 10px; margin-bottom: 15px; max-height: 100px; overflow-y: auto;">
-                    <pre style="color: #e2e8f0; white-space: pre-wrap; font-size: 0.85rem; margin: 0; font-family: 'Tajawal', sans-serif;">${preview}</pre>
-                </div>
+        window.soundManager.playSuccess();
+        window.showNeuroToast('جاري تحويل المحتوى إلى الروشيته...', 'success');
 
-                <div style="display: flex; gap: 8px;">
-                    <button class="btn-neuro template-use-btn" data-id="${template.id}" 
-                        style="flex: 1; padding: 10px; font-size: 0.9rem; background: #10b981; animation: none;">
-                        <i class="fa-solid fa-copy"></i> استخدام القالب
-                    </button>
-                    <button class="btn-edit-tool template-edit-btn" data-id="${template.id}" 
-                        title="تعديل" style="padding: 10px 15px;">
-                        <i class="fa-solid fa-pen"></i>
-                    </button>
-                    <button class="btn-edit-tool template-delete-btn" data-id="${template.id}" 
-                        title="حذف" style="padding: 10px 15px; color: #ef4444; border-color: rgba(239, 68, 68, 0.3);">
-                        <i class="fa-solid fa-trash"></i>
-                    </button>
-                </div>
-            </div>
-        `;
-    }
-
-    handleSearch(query) {
-        this.renderTemplates(query.trim());
+        // Snap to editor
+        setTimeout(() => {
+            window.location.href = 'editor.html';
+        }, 800);
     }
 
     showAddTemplateModal() {
