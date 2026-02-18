@@ -462,7 +462,7 @@
                             <h2><i class="fa-solid fa-file-medical"></i> توصيات علاجية جاهزة</h2>
                             <div style="display: flex; gap: 10px;">
                                 <a href="editor.html" class="btn-neuro"
-                                    style="background: #3b82f6; text-decoration: none; color: white; display: flex; align-items: center; gap: 8px;">
+                                    style="background: linear-gradient(135deg, #00eaff 0%, #0081ff 100%); text-decoration: none; color: #000; display: flex; align-items: center; gap: 8px; font-weight: 800; border: none; box-shadow: 0 0 15px rgba(0, 234, 255, 0.4); transition: all 0.3s ease;">
                                     <i class="fa-solid fa-file-signature"></i> فتح محرر الروشتات
                                 </a>
                                 <button class="btn-neuro" id="btn-add-template">
@@ -471,9 +471,14 @@
                             </div>
                         </div>
 
-                        <div style="margin-bottom: 20px;">
-                            <input type="text" id="template-search" class="neuro-input" placeholder="بحث في القوالب..."
-                                style="width: 100%; padding: 12px; background: #111827; border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; color: white; font-size: 1rem;">
+                        <div style="margin-bottom: 20px; display: flex; justify-content: flex-start;">
+                            <div style="position: relative; width: 100%; max-width: 400px;">
+                                <i class="fa-solid fa-magnifying-glass"
+                                    style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: var(--theme-accent); opacity: 0.6;"></i>
+                                <input type="text" id="template-search" class="neuro-input"
+                                    placeholder="بحث في القوالب..."
+                                    style="width: 100%; padding: 8px 35px 8px 15px; background: rgba(var(--accent-blue-rgb), 0.05); border: 1px solid var(--theme-border); border-radius: 10px; color: var(--text-primary); font-size: 0.9rem; outline: none;">
+                            </div>
                         </div>
 
                         <div id="templates-grid"

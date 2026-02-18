@@ -33,18 +33,18 @@ class TemplatesUI {
         const usageText = template.usageCount === 0 ? 'لم يُستخدم بعد' : `استُخدم ${template.usageCount} مرة`;
 
         return `
-            <div class="template-card" style="background: rgba(0, 0, 0, 0.2); border: 1px solid rgba(0, 234, 255, 0.1); border-radius: 15px; padding: 20px; transition: all 0.3s; cursor: pointer;">
+            <div class="template-card" style="background: var(--theme-card-bg); border: 1px solid var(--theme-border); border-radius: 15px; padding: 20px; transition: all 0.3s; cursor: pointer; box-shadow: var(--neon-shadow);">
                 <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 12px;">
-                    <h3 style="color: #00eaff; font-size: 1.2rem; font-weight: 700; margin: 0;">${template.name}</h3>
-                    <span style="background: rgba(0, 234, 255, 0.1); color: #00eaff; padding: 4px 10px; border-radius: 8px; font-size: 0.75rem; font-weight: 600;">
+                    <h3 style="color: var(--theme-accent); font-size: 1.2rem; font-weight: 700; margin: 0;">${template.name}</h3>
+                    <span style="background: rgba(var(--accent-blue-rgb), 0.1); color: var(--theme-accent); padding: 4px 10px; border-radius: 8px; font-size: 0.75rem; font-weight: 600; border: 1px solid var(--theme-border);">
                         ${usageText}
                     </span>
                 </div>
 
-                ${template.notes ? `<p style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 12px; font-style: italic;">${template.notes}</p>` : ''}
+                ${template.notes ? `<p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 12px; font-style: italic;">${template.notes}</p>` : ''}
 
-                <div style="background: rgba(255, 255, 255, 0.03); padding: 12px; border-radius: 10px; margin-bottom: 15px; max-height: 100px; overflow-y: auto;">
-                    <pre style="color: #e2e8f0; white-space: pre-wrap; font-size: 0.85rem; margin: 0; font-family: 'Tajawal', sans-serif;">${preview}</pre>
+                <div style="background: rgba(0, 234, 255, 0.05); padding: 12px; border-radius: 10px; margin-bottom: 15px; max-height: 100px; overflow-y: auto; border: 1px solid rgba(0, 234, 255, 0.1);">
+                    <pre style="color: var(--text-primary); white-space: pre-wrap; font-size: 0.85rem; margin: 0; font-family: 'Tajawal', sans-serif;">${preview}</pre>
                 </div>
 
                 <div style="display: flex; gap: 8px;">
