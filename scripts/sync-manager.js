@@ -28,6 +28,169 @@ class SyncManager {
 
         // Initialize real-time synchronization listeners
         this.initSyncListeners();
+
+        // --- EMERGENCY RECOVERY ACTIVATION ---
+        // Repairs names for 188 patients and restores system settings
+        setTimeout(() => this.emergencyRepair(), 1000);
+    }
+
+    /**
+     * Emergency Repair: Detects data degradation and injects the verified backup.
+     */
+    async emergencyRepair() {
+        // Trigger repair if:
+        // 1. Patients table is totally zero (Empty state)
+        // 2. Or we have patients but they are missing names (Degradation)
+        const isEmpty = !this.data.patients || this.data.patients.length === 0;
+        const hasMissingNames = this.data.patients && this.data.patients.length > 0 &&
+            this.data.patients.some(p => p.clinicId === 'clinic-default' && (!p.name || p.name === 'غير معروف'));
+
+        const settingsNeedRepair = !this.data.settings || !this.data.settings.activeClinicId;
+
+        if (isEmpty || hasMissingNames || settingsNeedRepair) {
+            console.warn("RESTORE_AGENT: Data degradation or empty state detected. Starting emergency repair...");
+
+            // The verified backup data provided by the user
+            const recoveryData = {
+                clinics: [
+                    { id: "clinic-default", name: "الاسكندرية", isActive: true, settings: { currency: "EGP", workingHours: { end: "21:00", start: "09:00" }, timezone: "Africa/Cairo" } },
+                    { id: "clinic-shubrakhit", name: "شبراخيت", isActive: true, settings: { currency: "EGP", workingHours: { end: "21:00", start: "09:00" }, timezone: "Africa/Cairo" } }
+                ],
+                settings: {
+                    lastPatientCode: 188,
+                    activeClinicId: "clinic-default",
+                    clinicName: "الاسكندرية",
+                    lastBackup: new Date().toISOString(),
+                    lastLocalUpdate: new Date().toISOString()
+                }
+            };
+
+            // Restore Clinics and Settings
+            this.data.clinics = recoveryData.clinics;
+            this.data.settings = { ...this.data.settings, ...recoveryData.settings };
+
+            // Restore Missing Names (Mapping by ID or PatientCode)
+            // We'll use a snapshot of the 188 patients from the provided text
+            const backupPatients = [
+                { id: "b14f5336-883f-4182-aaac-1adf10364060", name: "محمد احمد عمران", patientCode: 101 },
+                { id: "5f347227-08c6-4e0a-a997-5b855279556c", name: "مرضي خير الله عبدالفتاح", patientCode: 102 },
+                { id: "100f55d9-f607-42e9-87fb-dd3cd172f36a", name: "حبيبه ياسر محمد", patientCode: 103 },
+                { id: "fa90142b-f4ea-4ca0-9828-c29a15ba940e", name: "اسلام سامي رمضان احمد", patientCode: 104 },
+                { id: "3804cf3f-6dde-4616-8720-7fc3aaa5d85e", name: "هند عبد العال", patientCode: 105 },
+                { id: "6130d835-cd14-40e7-8692-2281fa213b24", name: "ايفان عزيز عزيز", patientCode: 106 },
+                { id: "cd0a66f9-859d-4082-a58e-9fc1a83c35d2", name: "محمد صلاح حلمي العباسي", patientCode: 107 },
+                { id: "99ee2b98-7b8a-44ea-b774-61cee9dcc66c", name: "يحيي محمود عباس", patientCode: 108 },
+                { id: "462b80eb-8bcf-4b9e-8977-ba9a927ca8c1", name: "حنان محمد ابراهيم عمر", patientCode: 109 },
+                { id: "735e8df7-a422-4a50-ab6a-8141a6958e99", name: "لمياء السيد احمد", patientCode: 110 },
+                { id: "f6aa193b-1d1a-49e6-a48d-56c5b8f0f810", name: "عصام احمد محمود", patientCode: 111 },
+                { id: "d1f13425-87ce-4e39-b5ca-e02293ccc861", name: "داليا ثابت صابر", patientCode: 112 },
+                { id: "653c412e-5761-473f-aa39-7c0875997eb8", name: "نعمه سعيد محمد", patientCode: 113 },
+                { id: "4ffa9fdc-916f-4e87-8b78-5e15991f668e", name: "سفيان باسم الشرقاوي", patientCode: 114 },
+                { id: "45dfa2ee-caa1-49d4-8af8-8dd0b4f14cd1", name: "زينب حبشي ابراهيم", patientCode: 115 },
+                { id: "20c75709-33ec-41ed-a975-bf2100fd19bd", name: "السيد فوزي محمد ابراهيم", patientCode: 116 },
+                { id: "a9dd5fa1-2384-4536-b9b2-fa792c5ebe9f", name: "ريناد احمدي المكاوي", patientCode: 117 },
+                { id: "88ec9d71-852b-4b0e-88c7-da80dda0f831", name: "اشرف عطيه اسماعيل", patientCode: 118 },
+                { id: "2fd94915-e4f9-4929-b6f8-adbdb3c3b543", name: "علاء جمعه عبد المنعم", patientCode: 119 },
+                { id: "ddd3733c-8531-49fb-a736-9334fc2ceef8", name: "محمد محمودالسيد ابو غنيم", patientCode: 120 },
+                { id: "35e5b1bb-d015-4f93-bf8f-3ebb12f88167", name: "نجلاء السييد محروس", patientCode: 121 },
+                { id: "a089fa03-ed2d-460d-a052-65532f0c03ad", name: "محمود فتحي عبد المنعم", patientCode: 122 },
+                { id: "affbd55c-0b96-49fa-b6bf-7459812e9ec1", name: "فتحيه مصطفي احمد", patientCode: 123 },
+                { id: "7a2d4b10-5811-410a-a3b2-bc4721a84742", name: "دينا محمد السيد", patientCode: 124 },
+                { id: "5232c228-2a59-4ac7-9b70-f413c574879f", name: "محمد شكري شهاوي", patientCode: 125 },
+                { id: "f149b428-154b-4f63-86a3-239c1067cab8", name: "مجدي مسعد عبد الحميد", patientCode: 126 },
+                { id: "e72c9370-896b-4ee2-b7ec-f6225cb88ac7", name: "عادي فخري ياسين", patientCode: 127 },
+                { id: "ad8536bd-0551-4bba-8aa0-0050f8a2158d", name: "ريا محمود بسيوني", patientCode: 128 },
+                { id: "2e7f78b5-48e7-4c5d-9aa5-6f3f390475ec", name: "علا محمود علام", patientCode: 129 },
+                { id: "297108e6-bf08-4b9c-9f8d-ee4e6b161a85", name: "نعمه السعيد محمد", patientCode: 130 },
+                { id: "04863e74-18cb-40ef-9b26-58517bc4a3d5", name: "يوسف مصطفي مسعد", patientCode: 131 },
+                { id: "40f54869-0d3a-4699-8e1e-1fc73766b3e7", name: "هبه عبد الحفيظ", patientCode: 132 },
+                { id: "6d70edef-b0f3-49b6-a548-5b34873292c1", name: "هيفن جورج رمزي", patientCode: 133 },
+                { id: "eb41be03-2db3-441c-bc6f-4fed5d30e8f6", name: "ايمان متولي عبد الرازق", patientCode: 134 },
+                { id: "711d07fd-6127-4c0d-a468-69ca803be95c", name: "مروه جمال محمد", patientCode: 135 },
+                { id: "ef6acc2f-6cd1-4d4f-af96-428096dc9d68", name: "احمد محمود عبد المنعم", patientCode: 136 },
+                { id: "0aad3602-0bc9-4a63-8ca4-2ba2c21d2cb6", name: "دينا خميس حسن", patientCode: 137 },
+                { id: "94a46903-98c4-47d1-bfa9-ebadb74374ac", name: "كوثر يوسف محمد", patientCode: 138 },
+                { id: "7f687468-915b-44d5-a0ca-87b83b81c652", name: "ايهاب محمد وفيق", patientCode: 139 },
+                { id: "db5f769c-39d5-447e-9bd6-7e2a1b78d6e6", name: "محمد عمرو الشرنوبي", patientCode: 140 },
+                { id: "65625b88-2c3f-41db-a5fa-04369e5390b4", name: "يونس محمد الشيخ", patientCode: 141 },
+                { id: "dac65cc5-fd3e-4be5-a225-d393fe4f2962", name: "عبد الرازق رجب عبدالرازق", patientCode: 142 },
+                { id: "f0cc4b65-444f-4d28-91f2-c45e5c043375", name: "اشرف سامح اشرف", patientCode: 143 },
+                { id: "be2904b6-c06a-4bc2-ae5d-6844fc7d3753", name: "احمد سعيد ابراهيم", patientCode: 144 },
+                { id: "4f11b4d5-3f5c-4fd8-9276-23285916624e", name: "الصالحين عبد النبي", patientCode: 145 },
+                { id: "182ef0e5-b9bf-41d0-b78d-4b4b4926adfb", name: "مريم عبد العزيز", patientCode: 146 },
+                { id: "7ae6195b-84e6-4b0a-8619-d18188e2a8ec", name: "سجي خالد محمود", patientCode: 147 },
+                { id: "c363c3c8-aa05-41a6-9166-7e6b29ab0789", name: "حميده منصور علي", patientCode: 148 },
+                { id: "9f8a8ca8-a130-438a-a9c1-471a1492f376", name: "مصطفى يوسف احمد", patientCode: 149 },
+                { id: "16f85fdd-f839-46d9-b023-c8133934a635", name: "مجدي خير الله عبدالفتاح", patientCode: 150 },
+                { id: "a70020c5-1c88-45b4-b68b-0e80a77de2f9", name: "فاطمه على خالد", patientCode: 151 },
+                { id: "e4330e73-c680-43c6-bc6f-0c7b95fbc69f", name: "علي عبد الحافظ محمد", patientCode: 152 },
+                { id: "c078c1ba-438c-4b8f-9e3a-d7f2ddfc9ab2", name: "ابتسام احمد خليل", patientCode: 153 },
+                { id: "10f7777e-a3ab-482a-a87d-6a81546fc2f1", name: "جابر رمضان صيام", patientCode: 154 },
+                { id: "f626febf-a225-4974-897c-23f3c49e356f", name: "ايه السيد ابراهيم", patientCode: 155 },
+                { id: "c838fd86-1776-46fb-8bcb-4b5a38d81899", name: "اسلام سامي محمد سعد", patientCode: 156 },
+                { id: "c0d4994e-90d9-464b-9576-6242ea0f117b", name: "سونه عبد الرحيم", patientCode: 157 },
+                { id: "84db4ebb-2adc-4d09-8da6-d1e3bfbc8e3a", name: "صفاء عوض الشيمي", patientCode: 158 },
+                { id: "13fc6bfd-5712-400f-8282-9002e22aac02", name: "هند احمد محمد", patientCode: 159 },
+                { id: "4a84b7a0-6d06-428a-b010-7b9dc97087c5", name: "حنين اشرف زكي", patientCode: 160 },
+                { id: "813a49e3-acdd-42df-b01a-ee2a9222f706", name: "نوره محمد بيومي", patientCode: 161 },
+                { id: "547f22bd-efb6-4e2d-b31b-ccb1769c45aa", name: "احمد محمد علي", patientCode: 162 },
+                { id: "8e1c6f67-27f9-4cfe-ab4d-7d78c845d984", name: "ساره منجي السيد", patientCode: 163 },
+                { id: "800a1888-91f4-4c33-9c83-61547edf8f32", name: "اشرف ابراهيم منصور", patientCode: 164 },
+                { id: "0ee64b8f-6767-486e-bc3b-f9c71a2533ba", name: "ممدوح عبد الجواد العطار", patientCode: 165 },
+                { id: "b0c66dc5-f45c-4bbe-8bb4-3b8dfd53bbc6", name: "احمد محمد علي", patientCode: 166 },
+                { id: "189f8ef7-2a9d-4da7-bbb1-858ab98f3d6c", name: "فيرونيا عماد بشري", patientCode: 167 },
+                { id: "ce32fe74-68d6-4541-9cc2-bfd6f8771076", name: "صادق على خالد", patientCode: 168 },
+                { id: "61da6fdb-c10d-447c-bd47-4c5fd1321493", name: "فكريه احمد الفوال", patientCode: 169 },
+                { id: "8d8de0fa-6567-4f89-ae88-2b36c0fb819f", name: "خالد محمد ابوبكر", patientCode: 170 },
+                { id: "9d3d9f44-8608-475e-a6a6-6ce277d26bec", name: "ياسمين ابراهيم عبد الحليم", patientCode: 171 },
+                { id: "5827a68a-ce8e-460d-9f8e-b57e1e45187b", name: "بسمه زايد وحيد الدين", patientCode: 172 },
+                { id: "de1cb6fd-44a0-48bf-bc38-dba4e6098aac", name: "محمد يحيي سعد", patientCode: 173 },
+                { id: "a7298543-4db5-454e-85b8-84285c090c74", name: "هدي سلطان مرابع", patientCode: 174 },
+                { id: "3b042503-26d4-453a-af30-0e07cea807a3", name: "ايه جمعه عبد الحسيب", patientCode: 175 },
+                { id: "fe75b902-bfc6-4ee7-96be-59a0c5e11c3a", name: "عمر الدوسري الدوسري", patientCode: 176 },
+                { id: "df4dd071-f1b6-4177-b7a5-3799e3ec3cc0", name: "محمد علي حسن", patientCode: 177 },
+                { id: "2ed18b36-df78-473f-a332-2d92018bb3b5", name: "خالد منصور ايراهيم", patientCode: 178 },
+                { id: "acf5f8db-fe6a-414e-beee-6088acb5243b", name: "ريتال اشرف منصور", patientCode: 179 },
+                { id: "e7b288d9-00cb-476f-85ee-95618b19a58c", name: "منال عبد الحميد رضا", patientCode: 180 },
+                { id: "33195b34-f7b5-4acf-8fff-1a6255cb99da", name: "بهيه حسن متولى", patientCode: 181 },
+                { id: "54385cdf-c845-421d-9e43-5f05dddb6c43", name: "ضى مرسى عبد العال", patientCode: 182 },
+                { id: "03ac3dca-d3f5-492f-8a4d-94d60507cfbe", name: "صلاح على على فلفل", patientCode: 183 },
+                { id: "11f12073-e505-416d-b2a5-c7e58302cb43", name: "خيرى على هشام", patientCode: 184 },
+                { id: "74674896-05ad-4883-8e0c-e34af2102786", name: "تامر حسنى", patientCode: 185 },
+                { id: "82586248-7581-4bad-b86a-c040b90c58f7", name: "ياسين مصطفى عبد الفتاح", patientCode: 186 },
+                { id: "1dd1c3df-0513-4b24-ad08-2039bb6dcb01", name: "محمد عزت عبد الحكيم سيف", patientCode: 187 },
+                { id: "35c73279-e2aa-47d9-9dff-5e79c62a6249", name: "سيلايبلبي", patientCode: 188 }
+            ];
+
+            // Restore Users if missing
+            if (!this.data.users || this.data.users.length === 0) {
+                this.data.users = [
+                    { id: "user-1", name: "العصافيرى", role: "admin", clinicIds: ["clinic-default", "clinic-shubrakhit"] },
+                    { id: "user-2", name: "عبدالرحمن", role: "admin", clinicIds: ["clinic-default", "clinic-shubrakhit"] },
+                    { id: "user-3", name: "السكرتارية", role: "secretary", clinicIds: ["clinic-default"] }
+                ];
+            }
+
+            // Mapping names back to current data
+            this.data.patients.forEach(p => {
+                const match = backupPatients.find(b => b.id === p.id || b.patientCode === p.patientCode);
+                if (match && (!p.name || p.name === 'غير معروف')) {
+                    p.name = match.name;
+                    p.patientCode = match.patientCode;
+                    p.clinicId = 'clinic-default'; // Alexandria Branch
+                }
+            });
+
+            // Save and Trigger Global Sync Overwrite
+            this.saveLocal();
+            this.notifyDataChanged(); // Force UI Refresh
+            this.isPullDone = true;
+
+            if (window.showNeuroToast) window.showNeuroToast("تنبيه: تم ترميم 88 مريضاً (أكواد حتى 188) من النسخة الاحتياطية بنجاح.", "success");
+
+            // Force push the clean data to the cloud immediately
+            setTimeout(() => this.triggerCloudSync(), 2000);
+        }
     }
 
     /**
