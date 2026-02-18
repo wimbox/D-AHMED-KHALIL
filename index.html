@@ -97,20 +97,16 @@
 
             <!-- Top Bar -->
             <header class="top-bar">
-                <!-- Clinic Selector -->
-                <div class="clinic-selector-container"
-                    style="display: flex; align-items: center; gap: 10px; margin-left: 20px;">
-                    <div
-                        style="display: flex; align-items: center; gap: 10px; background: rgba(15, 23, 42, 0.6); padding: 5px 12px; border-radius: 12px; border: 2px solid var(--accent-blue); box-shadow: 0 0 15px rgba(var(--accent-blue-rgb), 0.1); backdrop-filter: blur(10px);">
-                        <i class="fa-solid fa-hospital" style="color: var(--accent-blue); font-size: 1rem;"></i>
-                        <select id="clinic-selector"
-                            style="background: transparent; border: none; color: var(--accent-blue); font-weight: 800; font-size: 0.95rem; padding: 5px; cursor: pointer; min-width: 140px; outline: none; font-family: 'Tajawal', sans-serif;">
-                            <!-- Populated by JS -->
-                        </select>
-                        <button id="btn-confirm-clinic" title="تأكيد التبديل وتحديث البيانات"
-                            style="background: var(--accent-blue); border: none; color: #000; width: 28px; height: 28px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.3s;">
-                            <i class="fa-solid fa-check" style="font-size: 0.8rem; font-weight: 900;"></i>
-                        </button>
+                <!-- Custom Clinic Switcher -->
+                <div class="clinic-switcher-modern" id="clinic-switcher-wrapper">
+                    <button class="clinic-drop-btn" id="active-clinic-display"
+                        style="background: rgba(15, 23, 42, 0.8); color: var(--accent-blue); border: 2px solid var(--accent-blue);">
+                        <i class="fa-solid fa-hospital-user"></i>
+                        <span id="active-clinic-name">جاري التحميل...</span>
+                        <i class="fa-solid fa-chevron-down chelsea-icon"></i>
+                    </button>
+                    <div class="clinic-drop-menu" id="clinic-drop-menu">
+                        <!-- Populated by JS -->
                     </div>
                 </div>
 

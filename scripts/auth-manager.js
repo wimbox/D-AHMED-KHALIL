@@ -313,6 +313,7 @@ class AuthManager {
 
             if (u && p) {
                 window.syncManager.data.settings.activeClinicId = clinicId;
+                localStorage.setItem('neuro_active_clinic_id', clinicId); // PERSISTENCE SYNC
                 window.syncManager.saveLocal();
                 this.login(u, p);
             }

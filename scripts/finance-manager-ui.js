@@ -156,13 +156,13 @@ class FinanceManagerUI {
                     ">${t.type === 'income' ? 'إيراد' : 'مصروف'}</span>
                 </td>
                 <td style="padding: 15px; font-weight: 700; color: #cbd5e1;">
-                    ${original.toLocaleString()} EGP
+                    ${original.toLocaleString()} ${syncManager.getActiveClinic()?.settings?.currency || 'EGP'}
                 </td>
                 <td style="padding: 15px; font-weight: 800; font-family: 'Inter'; font-size: 1.1rem; color: ${t.type === 'income' ? '#10b981' : '#ef4444'};">
-                    ${paid.toLocaleString()} EGP
+                    ${paid.toLocaleString()} ${syncManager.getActiveClinic()?.settings?.currency || 'EGP'}
                 </td>
                 <td style="padding: 15px; font-weight: 700; color: ${remaining > 0 ? '#f59e0b' : '#64748b'};">
-                    ${remaining.toLocaleString()} EGP
+                    ${remaining.toLocaleString()} ${syncManager.getActiveClinic()?.settings?.currency || 'EGP'}
                 </td>
                 <td style="padding: 15px; color: #cbd5e1;">${t.beneficiary || '-'}</td>
                 <td style="padding: 15px;">
@@ -191,12 +191,13 @@ class FinanceManagerUI {
             else expense += parseFloat(t.amount);
         });
 
-        document.getElementById('total-income').innerText = income.toLocaleString() + ' EGP';
-        document.getElementById('total-expense').innerText = expense.toLocaleString() + ' EGP';
+        const currency = syncManager.getActiveClinic()?.settings?.currency || 'EGP';
+        document.getElementById('total-income').innerText = income.toLocaleString() + ' ' + currency;
+        document.getElementById('total-expense').innerText = expense.toLocaleString() + ' ' + currency;
 
         const net = income - expense;
         const netEl = document.getElementById('net-profit');
-        netEl.innerText = net.toLocaleString() + ' EGP';
+        netEl.innerText = net.toLocaleString() + ' ' + currency;
         netEl.style.color = net >= 0 ? '#10b981' : '#ef4444';
     }
 

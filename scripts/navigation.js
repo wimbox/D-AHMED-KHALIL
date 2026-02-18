@@ -51,6 +51,12 @@ class Navigation {
 
     onViewOpen(viewName) {
         console.log(`View opened: ${viewName}`);
+        if (!window.dashboardUI) {
+            console.warn(`DashboardUI not ready for view: ${viewName}. Retrying in 100ms...`);
+            setTimeout(() => this.onViewOpen(viewName), 100);
+            return;
+        }
+
         if (viewName === 'patients') {
             window.dashboardUI.renderPatientsManagement();
         } else if (viewName === 'finance') {
@@ -71,5 +77,8 @@ class Navigation {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    window.navigation = new Navigation();
+    // Wait a tiny bit to ensure DashboardUI is also ready
+    setTimeout(() => {
+        window.navigation = new Navigation();
+    }, 100);
 });
