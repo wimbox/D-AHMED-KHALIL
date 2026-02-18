@@ -106,8 +106,10 @@ class SyncManager {
             localStorage.setItem(this.DB_KEY, JSON.stringify(parsed));
 
             // --- Data Self-Healing Migration (Fix for discrepancies) ---
+            // CRITICAL: Always assign legacy data to Alexandria (clinic-default), NOT the active clinic
+            // This prevents old data from appearing in Shubrakhit when it's the active clinic
             let repaired = false;
-            const defaultClinicId = parsed.settings?.activeClinicId || 'clinic-default';
+            const defaultClinicId = 'clinic-default'; // Always Alexandria for legacy data
 
             // 1. Repair Patients
             (parsed.patients || []).forEach(p => {

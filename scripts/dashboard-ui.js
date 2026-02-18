@@ -1601,53 +1601,8 @@ class DashboardUI {
     }
 
     initUsersAndLogs() {
-        // Add Employee Logic (Now inside settings)
-        const btnAdd = document.getElementById('btn-add-employee');
-        if (btnAdd) {
-            btnAdd.onclick = () => {
-                const modalHTML = `
-                    <div style="text-align: right;">
-                        <div class="form-group" style="margin-bottom: 20px;">
-                            <label style="display: block; margin-bottom: 8px; color: var(--text-primary); font-weight: 800;">الاسم الكامل للموظف</label>
-                            <input type="text" id="user-new-name" class="neuro-input" style="width:100%; padding: 12px;" placeholder="مثال: د. أحمد خليل">
-                        </div>
-                        <div class="form-group" style="margin-bottom: 20px;">
-                            <label style="display: block; margin-bottom: 8px; color: var(--text-primary); font-weight: 800;">اسم المستخدم (Login)</label>
-                            <input type="text" id="user-new-username" class="neuro-input" style="width:100%; padding: 12px;" placeholder="اسم الدخول">
-                        </div>
-                        <div class="form-group" style="margin-bottom: 20px;">
-                            <label style="display: block; margin-bottom: 8px; color: var(--text-primary); font-weight: 800;">كلمة المرور</label>
-                            <input type="password" id="user-new-password" class="neuro-input" style="width:100%; padding: 12px;" placeholder="****">
-                        </div>
-                        <div class="form-group" style="margin-bottom: 20px;">
-                            <label style="display: block; margin-bottom: 8px; color: var(--text-primary); font-weight: 800;">مستوى الصلاحية</label>
-                            <select id="user-new-role" class="neuro-input" style="width:100%; height: 50px; padding: 0 15px;">
-                                <option value="doctor">طبيب (صلاحية طبية كاملة)</option>
-                                <option value="secretary">سكرتارية (إدارة مواعيد وحسابات)</option>
-                                <option value="admin">مدير (تحكم شامل في النظام)</option>
-                            </select>
-                        </div>
-                    </div>
-                `;
-
-                showNeuroModal('إضافة موظف جديد', modalHTML, () => {
-                    const name = document.getElementById('user-new-name').value;
-                    const username = document.getElementById('user-new-username').value;
-                    const password = document.getElementById('user-new-password').value;
-                    const role = document.getElementById('user-new-role').value;
-
-                    if (!name || !username || !password) {
-                        window.showNeuroToast('يرجى إكمال كافة البيانات', 'error');
-                        return false;
-                    }
-
-                    syncManager.addUser({ name, username, password, role });
-                    this.renderUsers();
-                    window.soundManager.playSuccess();
-                    return true;
-                });
-            };
-        }
+        // Legacy function - no longer needed
+        // User management is now handled through openAddUserModal() in settings
     }
 
     renderUsers() {

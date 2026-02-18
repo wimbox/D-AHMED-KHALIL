@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>اختبار الإصلاحات - 17 فبراير 2026</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            color: #fff;
+            padding: 40px 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            color: #00eaff;
+            margin-bottom: 40px;
+            font-size: 2.5rem;
+            text-shadow: 0 0 20px rgba(0, 234, 255, 0.5);
+        }
+
+        .test-card {
+            background: rgba(30, 41, 59, 0.8);
+            border: 2px solid rgba(0, 234, 255, 0.3);
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .test-card h2 {
+            color: #10b981;
+            margin-bottom: 20px;
+            font-size: 1.8rem;
+        }
+
+        .test-step {
+            background: rgba(15, 23, 42, 0.6);
+            padding: 15px 20px;
+            margin: 10px 0;
+            border-radius: 12px;
+            border-right: 4px solid #00eaff;
+        }
+
+        .test-step strong {
+            color: #00eaff;
+            display: block;
+            margin-bottom: 8px;
+        }
+
+        .expected {
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px dashed #10b981;
+            padding: 12px;
+            border-radius: 8px;
+            margin-top: 10px;
+            color: #10b981;
+        }
+
+        .warning {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px dashed #ef4444;
+            padding: 12px;
+            border-radius: 8px;
+            margin-top: 10px;
+            color: #ef4444;
+        }
+
+        .btn {
+            background: #00eaff;
+            color: #0f172a;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 12px;
+            font-size: 1.1rem;
+            font-weight: 800;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: inline-block;
+            text-decoration: none;
+            margin: 10px 5px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(0, 234, 255, 0.4);
+        }
+
+        .btn-success {
+            background: #10b981;
+            color: #fff;
+        }
+
+        .status {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: 700;
+            margin-right: 10px;
+        }
+
+        .status-fixed {
+            background: rgba(16, 185, 129, 0.2);
+            color: #10b981;
+            border: 1px solid #10b981;
+        }
+
+        .status-testing {
+            background: rgba(245, 158, 11, 0.2);
+            color: #f59e0b;
+            border: 1px solid #f59e0b;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>🔧 اختبار الإصلاحات - 17 فبراير 2026</h1>
+
+        <div class="test-card">
+            <h2>
+                <span class="status status-fixed">✅ تم الإصلاح</span>
+                اختبار 1: فصل بيانات العيادات
+            </h2>
+
+            <div class="test-step">
+                <strong>الخطوة 1:</strong>
+                افتح Dashboard وسجل دخول كمدير (admin / admin)
+            </div>
+
+            <div class="test-step">
+                <strong>الخطوة 2:</strong>
+                تأكد أنك في عيادة الإسكندرية
+                <div class="expected">
+                    ✅ المتوقع: يجب أن ترى إحصائيات الإسكندرية فقط
+                </div>
+            </div>
+
+            <div class="test-step">
+                <strong>الخطوة 3:</strong>
+                بدّل إلى عيادة شبراخيت من القائمة العلوية
+                <div class="expected">
+                    ✅ المتوقع: الإحصائيات تتغير تماماً<br>
+                    ✅ المتوقع: لا تظهر بيانات الإسكندرية<br>
+                    ✅ المتوقع: فقط بيانات شبراخيت تظهر
+                </div>
+                <div class="warning">
+                    ⚠️ إذا ظهرت بيانات الإسكندرية في شبراخيت، أعد تحميل الصفحة (F5)
+                </div>
+            </div>
+
+            <div class="test-step">
+                <strong>الخطوة 4:</strong>
+                افتح Console (F12) وتحقق من الرسالة:
+                <code style="display: block; background: #000; padding: 10px; margin-top: 10px; border-radius: 5px;">
+                    SyncManager: Data self-healed (assigned clinic IDs to legacy records).
+                </code>
+                <div class="expected">
+                    ✅ إذا ظهرت هذه الرسالة، معناها أن البيانات القديمة تم إصلاحها
+                </div>
+            </div>
+        </div>
+
+        <div class="test-card">
+            <h2>
+                <span class="status status-fixed">✅ تم الإصلاح</span>
+                اختبار 2: إضافة موظف جديد
+            </h2>
+
+            <div class="test-step">
+                <strong>الخطوة 1:</strong>
+                اذهب إلى الإعدادات ⚙️
+            </div>
+
+            <div class="test-step">
+                <strong>الخطوة 2:</strong>
+                اضغط على "إضافة موظف جديد" (الزر الأخضر)
+                <div class="expected">
+                    ✅ المتوقع: نافذة منبثقة تظهر مع نموذج كامل
+                </div>
+            </div>
+
+            <div class="test-step">
+                <strong>الخطوة 3:</strong>
+                املأ البيانات التالية:
+                <ul style="margin-top: 10px; padding-right: 20px;">
+                    <li>الاسم: اختبار موظف</li>
+                    <li>اسم المستخدم: test_user_2026</li>
+                    <li>كلمة المرور: 1234</li>
+                    <li>الصلاحية: سكرتارية</li>
+                    <li>العيادات: ✅ اختر الإسكندرية</li>
+                </ul>
+                <div class="expected">
+                    ✅ المتوقع: يجب أن ترى قائمة بالعيادات مع checkboxes
+                </div>
+            </div>
+
+            <div class="test-step">
+                <strong>الخطوة 4:</strong>
+                اضغط "تأكيد"
+                <div class="expected">
+                    ✅ المتوقع: رسالة نجاح تظهر<br>
+                    ✅ المتوقع: الموظف الجديد يظهر في القائمة فوراً<br>
+                    ✅ المتوقع: يظهر "الإسكندرية" تحت "العيادات المتاحة"
+                </div>
+                <div class="warning">
+                    ❌ إذا ظهرت رسالة خطأ، تحقق من:<br>
+                    • هل ملأت جميع الحقول؟<br>
+                    • هل اخترت عيادة واحدة على الأقل؟<br>
+                    • هل اسم المستخدم مستخدم من قبل؟
+                </div>
+            </div>
+
+            <div class="test-step">
+                <strong>الخطوة 5:</strong>
+                سجل خروج وحاول تسجيل الدخول بالموظف الجديد
+                <div class="expected">
+                    ✅ المتوقع: تسجيل الدخول يعمل بنجاح<br>
+                    ✅ المتوقع: الموظف يرى بيانات الإسكندرية فقط
+                </div>
+            </div>
+        </div>
+
+        <div class="test-card">
+            <h2>
+                <span class="status status-testing">🧪 اختبار إضافي</span>
+                التحقق من البيانات القديمة
+            </h2>
+
+            <div class="test-step">
+                <strong>للتحقق من أن البيانات القديمة تم إصلاحها:</strong>
+                <ol style="margin-top: 10px; padding-right: 20px;">
+                    <li>افتح Console (F12)</li>
+                    <li>اكتب: <code
+                            style="background: #000; padding: 2px 8px; border-radius: 3px;">syncManager.data.finances.transactions</code>
+                    </li>
+                    <li>اضغط Enter</li>
+                    <li>افحص كل معاملة مالية</li>
+                </ol>
+                <div class="expected">
+                    ✅ المتوقع: كل معاملة يجب أن تحتوي على <code>clinicId</code><br>
+                    ✅ المتوقع: البيانات القديمة يجب أن تحتوي على <code>clinicId: "clinic-default"</code>
+                </div>
+            </div>
+        </div>
+
+        <div style="text-align: center; margin-top: 40px;">
+            <a href="index.html" class="btn btn-success">
+                🚀 افتح Dashboard للاختبار
+            </a>
+            <a href="FIXES_2026_02_17.md" class="btn">
+                📄 اقرأ التوثيق الكامل
+            </a>
+        </div>
+
+        <div style="text-align: center; margin-top: 30px; color: #64748b; font-size: 0.9rem;">
+            <p>تم الإصلاح بواسطة Antigravity AI Assistant</p>
+            <p>17 فبراير 2026 - الإصدار 2.6.1</p>
+        </div>
+    </div>
+</body>
+
+</html>
