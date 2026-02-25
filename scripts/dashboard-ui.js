@@ -233,15 +233,7 @@ class DashboardUI {
         const scrollTarget = container === window ? window : container;
         scrollTarget.addEventListener('scroll', () => this.handleScrollNavigator());
 
-        // Check for recent data repair
-        if (localStorage.getItem('neuro_repair_success') === 'true') {
-            setTimeout(() => {
-                if (window.showNeuroToast) {
-                    window.showNeuroToast('✅ تم تنظيف شبراخيت ونقل البيانات للإسكندرية بنجاح.', 'success');
-                }
-                localStorage.removeItem('neuro_repair_success');
-            }, 3000);
-        }
+
 
         setTimeout(() => window.soundManager.playStartup(), 1000);
     }
