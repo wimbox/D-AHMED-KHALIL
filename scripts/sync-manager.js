@@ -29,7 +29,97 @@ class SyncManager {
         // Initialize real-time synchronization listeners
         this.initSyncListeners();
 
+        // Safe-Exit Browser Listener (Guardian Second Chance)
+        this.initExitListener();
 
+        // Try restoring folder handle from IndexedDB (Auto-Guardian Persistence)
+        this.restoreFolderHandle();
+    }
+
+    /**
+     * Browser Safety: Prompt user before closing to prevent data loss.
+     * Changed: Disabled intrusive browser beforeunload by user request.
+     */
+    initExitListener() {
+        // Feature disabled intentionally.
+        // The application now relies on explicit logout/close buttons from the UI.
+    }
+
+    /**
+     * Persistence: Try to find a saved folder handle in IndexedDB
+     */
+    async restoreFolderHandle() {
+        if (!('showDirectoryPicker' in window)) return;
+        try {
+            const handle = await this.getHandleFromDB();
+            if (handle) {
+                // Verify if we still have permission (usually requires a user click to re-activate)
+                const permission = await handle.queryPermission({ mode: 'readwrite' });
+                if (permission === 'granted') {
+                    this.backupHandle = handle;
+                    this.isAutoBackupEnabled = true;
+                    console.log("SyncManager: Auto-Guardian handle restored successfully.");
+                } else {
+                    console.log("SyncManager: Saved handle found, but needs re-activation.");
+                    this.savedHandleProxy = handle; // Store for DashboardUI to trigger re-activation
+                }
+            }
+        } catch (err) { console.warn("Failed to restore handle:", err); }
+    }
+
+    async saveHandleToDB(handle) {
+        return new Promise((resolve, reject) => {
+            const request = indexedDB.open("NeuroGuardianDB", 1);
+            request.onupgradeneeded = (e) => e.target.result.createObjectStore("handles");
+            request.onsuccess = (e) => {
+                const db = e.target.result;
+                const tx = db.transaction("handles", "readwrite");
+                tx.objectStore("handles").put(handle, "auto_guardian_folder");
+                tx.oncomplete = () => resolve();
+            };
+            request.onerror = () => reject();
+        });
+    }
+
+    async getHandleFromDB() {
+        return new Promise((resolve) => {
+            const request = indexedDB.open("NeuroGuardianDB", 1);
+            request.onupgradeneeded = (e) => e.target.result.createObjectStore("handles");
+            request.onsuccess = (e) => {
+                const db = e.target.result;
+                const tx = db.transaction("handles", "readonly");
+                const getReq = tx.objectStore("handles").get("auto_guardian_folder");
+                getReq.onsuccess = () => resolve(getReq.result);
+                getReq.onerror = () => resolve(null);
+            };
+            request.onerror = () => resolve(null);
+        });
+    }
+
+    /**
+     * Gets the most appropriate backup path/description based on environment.
+     */
+    getBackupInfo() {
+        if (window.electronAPI) {
+            return {
+                type: 'desktop',
+                primaryPath: 'D:\\Backups-neuro-clinic',
+                secondaryPaths: ['Desktop', 'Documents'],
+                description: 'المسار المخصص في القرص D:'
+            };
+        } else if (this.backupHandle) {
+            return {
+                type: 'linked-folder',
+                primaryPath: 'المجلد المتصل المحفوظ',
+                description: 'المجلد الذي قمت بربطه يدوياً'
+            };
+        } else {
+            return {
+                type: 'browser',
+                primaryPath: 'تنزيلات المتصفح (Edge/Chrome)',
+                description: 'تحميل ملف نسخة (Downloads)'
+            };
+        }
     }
 
 
@@ -527,20 +617,68 @@ class SyncManager {
     /**
      * Performs a background save to the linked directory.
      */
-    async performAutoBackup() {
-        if (!this.backupHandle) return;
+    async performAutoBackup(isManualExit = false) {
+        // --- 1. High Priority: Electron Forced Fixed Backup (D:\Partition) ---
+        if (window.electronAPI && window.electronAPI.forceFixedBackup) {
+            try {
+                const dataStr = this.getBackupJSON();
+                const result = await window.electronAPI.forceFixedBackup(dataStr);
 
-        const data = this.getBackupJSON();
-        const fileName = `neuro_auto_backup.json`; // Rotating single file for simplicity, or timestamped
-        const fileHandle = await this.backupHandle.getFileHandle(fileName, { create: true });
-        const writable = await fileHandle.createWritable();
-        await writable.write(data);
-        await writable.close();
+                if (result.success) {
+                    this.data.settings.lastBackup = new Date().toISOString();
+                    localStorage.setItem(this.DB_KEY, JSON.stringify(this.data));
+                    window.dispatchEvent(new CustomEvent('backupStatusChanged'));
+                    console.log(`%c [Auto-Guardian] Backup successful at: ${result.path}`, "color: #10b981; font-weight: bold;");
+                    return { success: true, path: result.path };
+                } else {
+                    console.error("[Auto-Guardian] Fixed backup failed:", result.error);
+                    // Critical: DO NOT return here, instead FALLTHROUGH to other methods
+                }
+            } catch (err) {
+                console.error("[Auto-Guardian] Exception during backup:", err);
+            }
+        }
 
-        this.data.settings.lastBackup = new Date().toISOString();
-        localStorage.setItem(this.DB_KEY, JSON.stringify(this.data));
-        window.dispatchEvent(new CustomEvent('backupStatusChanged'));
-        console.log("Auto-Guardian: Data automatically backed up to local folder.");
+        // --- 2. Secondary: Standard Directory Handle (FileSystem Access API - Browser) ---
+        if (this.backupHandle) {
+            try {
+                const data = this.getBackupJSON();
+                const fileName = `neuro_auto_backup_${new Date().toISOString().split('T')[0]}.json`;
+                const fileHandle = await this.backupHandle.getFileHandle(fileName, { create: true });
+                const writable = await fileHandle.createWritable();
+                await writable.write(data);
+                await writable.close();
+
+                this.data.settings.lastBackup = new Date().toISOString();
+                localStorage.setItem(this.DB_KEY, JSON.stringify(this.data));
+                window.dispatchEvent(new CustomEvent('backupStatusChanged'));
+                return { success: true, path: 'المجلد المرتبط (Manual Handle)' };
+            } catch (err) {
+                console.error("Auto-Guardian (Handle) Error:", err);
+            }
+        }
+
+        // --- 3. Final Fallback: Emergency Browser Download (Only for Exit/Logout) ---
+        if (isManualExit) {
+            try {
+                const dataStr = this.getBackupJSON();
+                const blob = new Blob([dataStr], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `neuro_emergency_backup_${new Date().toISOString().split('T')[0]}.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+
+                return { success: true, path: 'مجلد التنزيلات (Downloads)' };
+            } catch (err) {
+                return { success: false, error: "فشل التحميل التلقائي للمتصفح" };
+            }
+        }
+
+        return { success: false, error: "لا يوجد اتصال بمساحة تخزين (تحقق من وجود قرص D: أو اربط مجلداً)" };
     }
 
 

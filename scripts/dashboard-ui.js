@@ -46,7 +46,7 @@ class DashboardUI {
         this.renderTodayAppointments();
 
         // Global Modal Helper
-        window.showNeuroModal = (title, msg, onConfirm = null, showCancel = true) => {
+        window.showNeuroModal = (title, msg, onConfirm = null, showCancel = true, onCancel = null) => {
             const overlay = document.createElement('div');
             overlay.className = 'neuro-modal-overlay';
             // Use div instead of p for msg to allow HTML content
@@ -72,9 +72,29 @@ class DashboardUI {
                 overlay.remove();
             };
             if (showCancel) {
-                overlay.querySelector('.btn-modal-cancel').onclick = () => overlay.remove();
+                overlay.querySelector('.btn-modal-cancel').onclick = () => {
+                    if (onCancel) onCancel();
+                    overlay.remove();
+                };
             }
-            overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+            overlay.onclick = (e) => {
+                if (e.target === overlay) {
+                    if (onCancel) onCancel();
+                    overlay.remove();
+                }
+            };
+        };
+
+        // Promise-based Confirmation
+        window.showNeuroConfirm = (title, msg) => {
+            return new Promise((resolve) => {
+                window.showNeuroModal(title, msg, () => {
+                    resolve(true);
+                    return true;
+                }, true, () => {
+                    resolve(false);
+                });
+            });
         };
 
         // Custom Toast Notification (Premium Look)
@@ -1878,18 +1898,34 @@ class DashboardUI {
                         </div>
 
                         <div style="padding: 25px; border: 2px solid var(--accent-primary); border-radius: 20px; text-align: center; background: rgba(0, 234, 255, 0.04); grid-column: span 2; box-shadow: 0 5px 15px rgba(0,0,0,0.02);">
-                            <h4 style="color: var(--accent-primary); margin-bottom: 15px; font-weight: 900; font-size: 1.2rem;"><i class="fa-solid fa-folder-tree"></i> درع الحماية التلقائي (Auto-Guardian)</h4>
-                            <p style="color: var(--text-secondary); font-size: 1rem; margin-bottom: 20px; line-height: 1.5; font-weight: 600;">اربط مجلد على جهازك وسيقوم البرنامج بحفظ نسخة احتياطية "تلقائياً" كلما قمت بتغيير بيانات أو إضافة مريض.</p>
+                            <h4 style="color: var(--accent-primary); margin-bottom: 15px; font-weight: 900; font-size: 1.2rem;"><i class="fa-solid fa-folder-tree"></i> درع الحماية الإجباري (Mandatory Auto-Guardian)</h4>
+                            <p style="color: var(--text-secondary); font-size: 1rem; margin-bottom: 20px; line-height: 1.5; font-weight: 600;">يتم حفظ نسخة احتياطية "تلقائية وإجبارية" في مسار آمن على جهازك عند كل تعديل وعند الخروج من البرنامج.</p>
                             
-                            <div id="folder-sync-status" style="margin-bottom: 15px; font-weight: 800; font-size: 1.05rem;">
-                                ${window.syncManager.isAutoBackupEnabled ?
-                    '<span style="color: #059669;"><i class="fa-solid fa-shield-check"></i> الحالة: مفعل (الحماية التلقائية تعمل)</span>' :
-                    '<span style="color: var(--text-secondary);"><i class="fa-solid fa-circle-dot"></i> الحالة: غير مفعل (اضغط للربط)</span>'}
+                            <div style="background: rgba(0, 234, 255, 0.08); padding: 15px; border-radius: 12px; border: 1px dashed var(--accent-primary); display: inline-block; min-width: 300px; margin-bottom: 15px;">
+                                <small style="color: #94a3b8; display: block; margin-bottom: 5px; font-weight: 800;">مسار الحفظ الحالي:</small>
+                                <span style="color: #00eaff; font-family: 'Inter'; font-weight: 900; font-size: 1.1rem;">${window.syncManager.getBackupInfo().primaryPath}</span>
                             </div>
 
-                            <button onclick="window.dashboardUI.linkBackupFolder()" class="btn-neuro" style="background: ${window.syncManager.isAutoBackupEnabled ? 'rgba(0, 234, 255, 0.1)' : 'var(--accent-primary)'}; color: ${window.syncManager.isAutoBackupEnabled ? 'var(--accent-primary)' : '#fff'}; font-weight: 900; border: 2px solid var(--accent-primary); padding: 14px 40px; border-radius: 12px; font-size: 1.1rem;">
-                                <i class="fa-solid ${window.syncManager.isAutoBackupEnabled ? 'fa-rotate' : 'fa-link'}"></i> ${window.syncManager.isAutoBackupEnabled ? 'تغيير المجلد المرتبط' : 'ربط مجلد الحفظ التلقائي'}
+                            <div id="folder-sync-status" style="margin-top: 10px; font-weight: 800; font-size: 1.05rem; color: ${window.syncManager.isAutoBackupEnabled ? '#10b981' : '#f59e0b'};">
+                                <i class="fa-solid ${window.syncManager.isAutoBackupEnabled ? 'fa-shield-check' : 'fa-circle-exclamation'}"></i> 
+                                الحالة: ${window.syncManager.isAutoBackupEnabled ? 'نشط (تلقائي)' : (window.syncManager.savedHandleProxy ? 'ينتظر إعادة التفعيل' : 'غير مفعل')}
+                            </div>
+                            
+                            <button onclick="window.syncManager.performAutoBackup().then(res => { if(res && res.success) window.showNeuroToast('✅ تم الحفظ بنجاح في: ' + res.path, 'success'); else window.showNeuroToast('❌ فشل الحفظ: ' + (res?.error || ''), 'error'); })" class="btn-neuro" style="margin-top: 15px; background: rgba(0, 234, 255, 0.1); border-color: var(--accent-primary); color: var(--accent-primary); width: 100%; font-weight: 800;">
+                                <i class="fa-solid fa-flask"></i> اختبار الحفظ الفوري (Backup Test)
                             </button>
+
+                            ${(!window.electronAPI && window.syncManager.savedHandleProxy && !window.syncManager.isAutoBackupEnabled) ? `
+                            <button onclick="window.dashboardUI.reactivateBackupFolder()" class="btn-neuro" style="margin-top: 10px; background: #f59e0b; border-color: #f59e0b; color: #fff; width: 100%; font-weight: 900; box-shadow: 0 0 15px rgba(245, 158, 11, 0.3);">
+                                <i class="fa-solid fa-bolt"></i> لمسة واحدة: إعادة تفعيل المجلد المرتبط
+                            </button>
+                            ` : ''}
+
+                            ${!window.electronAPI ? `
+                            <button onclick="window.dashboardUI.linkBackupFolder()" class="btn-neuro" style="margin-top: 10px; background: none; border-color: #64748b; color: #64748b; width: 100%; font-size: 0.9rem;">
+                                <i class="fa-solid fa-link"></i> ربط مجلد متصفح جديد
+                            </button>
+                            ` : ''}
                         </div>
 
                         <div style="padding: 20px; border: 1px dashed rgba(16, 185, 129, 0.6); border-radius: 15px; text-align: center; background: rgba(16, 185, 129, 0.05);">
@@ -2061,6 +2097,11 @@ class DashboardUI {
             window.syncManager.backupHandle = handle;
             window.syncManager.isAutoBackupEnabled = true;
 
+            // Save for future sessions
+            if (window.syncManager.saveHandleToDB) {
+                await window.syncManager.saveHandleToDB(handle);
+            }
+
             // Immediate first backup
             await window.syncManager.performAutoBackup();
 
@@ -2073,6 +2114,29 @@ class DashboardUI {
             if (err.name === 'AbortError') return;
             console.error("Folder Link Failed:", err);
             window.showNeuroToast('فشل ربط المجلد. يرجى التأكد من إعطاء الصلاحيات.', 'error');
+        }
+    }
+
+    async reactivateBackupFolder() {
+        if (!window.syncManager.savedHandleProxy) return;
+        try {
+            const handle = window.syncManager.savedHandleProxy;
+            // Trigger browser permission prompt (must be called from a user gesture)
+            const permission = await handle.requestPermission({ mode: 'readwrite' });
+
+            if (permission === 'granted') {
+                window.syncManager.backupHandle = handle;
+                window.syncManager.isAutoBackupEnabled = true;
+                window.syncManager.savedHandleProxy = null;
+
+                await window.syncManager.performAutoBackup();
+                window.showNeuroToast('تم استعادة درع الحماية بنجاح!', 'success');
+                window.soundManager?.playSuccess();
+                this.loadSettingsView();
+            }
+        } catch (err) {
+            console.error("Reactivation failed:", err);
+            window.showNeuroToast('فشل إعادة التفعيل. قد تحتاج لربط المجلد من جديد.', 'info');
         }
     }
 
@@ -2212,10 +2276,80 @@ class DashboardUI {
             }
         }, true);
     }
+
+    async shutdownApp() {
+        const backupInfo = window.syncManager?.getBackupInfo() || { description: 'نسخة احتياطية' };
+
+        // 1. Confirmation with explicit dynamic Save text
+        const confirmed = await window.showNeuroConfirm(
+            'إغلاق المنظومة',
+            `هل أنت متأكد من رغبتك في إغلاق البرنامج وتأمين كافة البيانات في (${backupInfo.description})؟`,
+            'تأكيد الإغلاق والحفظ'
+        );
+
+        if (!confirmed) return;
+
+        const shutdownBtn = document.getElementById('btn-shutdown') || document.querySelector('.shutdown-link');
+        if (shutdownBtn) {
+            shutdownBtn.style.pointerEvents = 'none';
+            shutdownBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> <span>جاري التأمين...</span>`;
+        }
+
+        // 2. Show Full-Screen Securing Overlay
+        if (window.authManager && window.authManager.showSecuringOverlay) {
+            window.authManager.showSecuringOverlay('جاري الإغلاق الآمن وتأمين البيانات...');
+        }
+
+        try {
+            let backupResult = { success: false };
+            if (window.syncManager) {
+                console.log("DashboardUI: Triggering mandatory final backup before shutdown...");
+                backupResult = await window.syncManager.performAutoBackup(true);
+            }
+
+            // UX Delay
+            await new Promise(r => setTimeout(r, 1200));
+
+            const successMsg = backupResult.success
+                ? `تم تأمين البيانات بنجاح في:<br><small style="color:#00eaff">${backupResult.path}</small>`
+                : `فشل الحفظ التلقائي: ${backupResult.error || 'عطل غير معروف'}`;
+
+            if (window.authManager && window.authManager.updateSecuringOverlayStatus) {
+                window.authManager.updateSecuringOverlayStatus(backupResult.success, successMsg);
+            }
+
+            // Ensure the user can see the status before exit
+            await new Promise(r => setTimeout(r, 2000));
+
+        } catch (err) {
+            console.error("Final shutdown backup failed:", err);
+            if (window.authManager && window.authManager.updateSecuringOverlayStatus) {
+                window.authManager.updateSecuringOverlayStatus(false, "خطأ تقني أثناء الحفظ النهائي");
+            }
+            await new Promise(r => setTimeout(r, 2000));
+        }
+
+        // Final Exit Sequence
+        if (window.electronAPI && window.electronAPI.exitAppFinal) {
+            window.electronAPI.exitAppFinal();
+        } else if (window.electronAPI && window.electronAPI.quitApp) {
+            window.electronAPI.quitApp();
+        } else {
+            window.close();
+            // If window.close() fails (browser restriction), show a manual message
+            if (window.authManager && window.authManager.updateSecuringOverlayStatus) {
+                window.authManager.updateSecuringOverlayStatus(true, "تم الحفظ بنجاح. يمكنك إغلاق هذه الصفحة الآن.");
+            }
+        }
+    }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
     window.dashboardUI = new DashboardUI();
+
+    // Show Shutdown Button globally (both Browser and Desktop)
+    const shutdownBtn = document.getElementById('btn-shutdown');
+    if (shutdownBtn) shutdownBtn.style.setProperty('display', 'flex', 'important');
 
     // Theme Switcher Logic (New)
     const themeBtn = document.getElementById('btn-theme-switcher');

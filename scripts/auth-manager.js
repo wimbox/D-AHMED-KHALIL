@@ -102,12 +102,51 @@ class AuthManager {
         }
     }
 
-    logout() {
-        if (this.currentUser) {
-            window.syncManager.logAction(this.currentUser.username, 'LOGOUT', 'تم تسجيل الخروج');
+    async logout() {
+        const backupInfo = window.syncManager?.getBackupInfo() || { description: 'نسخة احتياطية' };
+
+        // 1. Ask for confirmation with explicit Save text and dynamic path
+        const confirmed = await window.showNeuroConfirm(
+            'تسجيل خروج آمن',
+            `هل تريد تسجيل الخروج وتأمين نسخة احتياطية فورية في (${backupInfo.description})؟`,
+            'تأكيد الخروج والحفظ'
+        );
+
+        if (!confirmed) return;
+
+        // 2. Show Full-Screen Securing Overlay
+        this.showSecuringOverlay('جاري تأمين بياناتك قبل الخروج...');
+
+        try {
+            let backupResult = { success: false };
+            if (window.syncManager) {
+                // Perform backup with manual exit fallback (CRITICAL: passing true)
+                backupResult = await window.syncManager.performAutoBackup(true);
+            }
+
+            // Artificial delay for UX and to ensure I/O completion
+            await new Promise(r => setTimeout(r, 1200));
+
+            const finalMsg = backupResult.success
+                ? `تم تأمين بياناتك بنجاح في: ${backupResult.path}`
+                : `تم الخروج (فشل الحفظ التلقائي: ${backupResult.error || ''})`;
+
+            this.updateSecuringOverlayStatus(backupResult.success, finalMsg);
+            await new Promise(r => setTimeout(r, 1500)); // Success/Error blink
+
+        } catch (err) {
+            console.error("Final logout backup failed:", err);
+            this.updateSecuringOverlayStatus(false, "تم الخروج مع وجود خطأ تقني في الحفظ");
+            await new Promise(r => setTimeout(r, 1500));
         }
+
+        if (this.currentUser) {
+            window.syncManager?.logAction(this.currentUser.username, 'LOGOUT', 'تم تسجيل الخروج');
+        }
+
         this.currentUser = null;
         localStorage.removeItem('neuro_current_user');
+
         window.location.reload();
     }
 
@@ -180,6 +219,9 @@ class AuthManager {
                     <button id="choice-employee" style="padding: 15px; background: rgba(0,234,255,0.05); color: #fff; border: 1.5px solid #00eaff; border-radius: 12px; font-weight: bold; font-size: 1.1rem; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; transition: 0.3s;" onmouseover="this.style.background='rgba(0,234,255,0.1)'; this.style.transform='scale(1.02)'" onmouseout="this.style.background='rgba(0,234,255,0.05)'; this.style.transform='scale(1)'">
                         <i class="fa-solid fa-user-group"></i> موظف / سكرتارية
                     </button>
+                    <button id="choice-close-app" style="margin-top: 10px; padding: 12px; background: rgba(239, 68, 68, 0.05); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 12px; font-weight: bold; font-size: 0.95rem; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; transition: 0.3s;" onmouseover="this.style.background='rgba(239, 68, 68, 0.15)'; this.style.borderColor='#ef4444'" onmouseout="this.style.background='rgba(239, 68, 68, 0.05)'; this.style.borderColor='rgba(239, 68, 68, 0.3)'">
+                        <i class="fa-solid fa-power-off"></i> إغلاق المنظومة
+                    </button>
                 </div>
 
                 <!-- Form View (Hidden by default) -->
@@ -237,6 +279,7 @@ class AuthManager {
         const formView = document.getElementById('login-form-view');
         const btnAdmin = document.getElementById('choice-admin');
         const btnEmp = document.getElementById('choice-employee');
+        const btnCloseApp = document.getElementById('choice-close-app');
         const btnBack = document.getElementById('btn-back-to-choice');
         const btnSubmit = document.getElementById('btn-login-submit');
         const userIn = document.getElementById('login-user');
@@ -273,6 +316,34 @@ class AuthManager {
         };
 
         masterClinicSelect.onchange = refreshEmployeeList;
+
+        btnCloseApp.onclick = async () => {
+            if (window.electronAPI) {
+                btnCloseApp.style.pointerEvents = 'none';
+                btnCloseApp.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> جاري التأمين...`;
+
+                if (window.syncManager) {
+                    await window.syncManager.performAutoBackup(true);
+                }
+                setTimeout(() => window.electronAPI.quitApp(), 500);
+            } else {
+                // Browser Fallback logic with UI feedback
+                const origHTML = btnCloseApp.innerHTML;
+                btnCloseApp.style.borderColor = '#00eaff';
+                btnCloseApp.style.color = '#00eaff';
+                btnCloseApp.innerHTML = `<i class="fa-solid fa-circle-info"></i> يرجى إغلاق المتصفح يدوياً للتأمين`;
+
+                if (window.syncManager) {
+                    window.syncManager.performAutoBackup(true);
+                }
+
+                setTimeout(() => {
+                    btnCloseApp.innerHTML = origHTML;
+                    btnCloseApp.style.borderColor = '';
+                    btnCloseApp.style.color = '';
+                }, 4000);
+            }
+        };
 
         btnAdmin.onclick = () => {
             isEmployeeMode = false;
@@ -415,6 +486,73 @@ class AuthManager {
     getRoleInArabic(role) {
         const map = { 'admin': 'مدير', 'doctor': 'طبيب', 'secretary': 'سكرتارية' };
         return map[role] || role;
+    }
+
+    showSecuringOverlay(msg) {
+        let overlay = document.getElementById('securing-data-overlay');
+        if (!overlay) {
+            overlay = document.createElement('div');
+            overlay.id = 'securing-data-overlay';
+            overlay.style.cssText = `
+                position: fixed; top: 0; left: 0; width: 100%; height: 100vh;
+                background: rgba(15, 23, 42, 0.98); backdrop-filter: blur(20px);
+                z-index: 20000; display: flex; flex-direction: column; align-items: center; justify-content: center;
+                font-family: 'Tajawal', sans-serif; transition: all 0.5s ease;
+            `;
+            overlay.innerHTML = `
+                <div id="securing-anim-container" style="position: relative; margin-bottom: 30px;">
+                    <div class="neuro-spinner" style="width: 100px; height: 100px; border: 4px solid rgba(0, 234, 255, 0.1); border-top-color: #00eaff; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+                    <i class="fa-solid fa-shield-halved" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 2.5rem; color: #00eaff; filter: drop-shadow(0 0 15px #00eaff);"></i>
+                </div>
+                <h2 id="securing-msg" style="color: #fff; font-size: 1.8rem; margin: 0; font-weight: 800; text-shadow: 0 0 15px rgba(0, 234, 255, 0.3); text-align: center;">${msg || 'جاري تأمين البيانات...'}</h2>
+                <div id="securing-progress-bar" style="width: 300px; height: 4px; background: rgba(255,255,255,0.05); border-radius: 10px; margin-top: 25px; overflow: hidden; position: relative;">
+                    <div id="securing-progress-fill" style="position: absolute; top: 0; left: 0; height: 100%; width: 0%; background: #00eaff; box-shadow: 0 0 15px #00eaff; transition: width 1.5s ease-in-out;"></div>
+                </div>
+            `;
+
+            // Add spin animation if not exists
+            if (!document.getElementById('neuro-global-animations')) {
+                const style = document.createElement('style');
+                style.id = 'neuro-global-animations';
+                style.innerHTML = `
+                    @keyframes spin { to { transform: rotate(360deg); } }
+                    @keyframes pulse-success { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
+                `;
+                document.head.appendChild(style);
+            }
+
+            document.body.appendChild(overlay);
+
+            // Animate progress bar
+            setTimeout(() => {
+                const fill = document.getElementById('securing-progress-fill');
+                if (fill) fill.style.width = '100%';
+            }, 50);
+        }
+    }
+
+    updateSecuringOverlayStatus(isSuccess, customMsg = null) {
+        const msg = document.getElementById('securing-msg');
+        const container = document.getElementById('securing-anim-container');
+        const fill = document.getElementById('securing-progress-fill');
+
+        if (isSuccess && msg && container) {
+            msg.innerHTML = `<i class="fa-solid fa-circle-check"></i> ${customMsg || 'تم تأمين بياناتك بنجاح'}`;
+            msg.style.color = '#10b981';
+            container.innerHTML = `<i class="fa-solid fa-circle-check" style="font-size: 5rem; color: #10b981; filter: drop-shadow(0 0 20px #10b981); animation: pulse-success 0.5s ease-out;"></i>`;
+            if (fill) {
+                fill.style.background = '#10b981';
+                fill.style.boxShadow = '0 0 15px #10b981';
+            }
+        } else if (!isSuccess && msg && container) {
+            msg.innerHTML = `<i class="fa-solid fa-circle-exclamation"></i> ${customMsg || 'فشل تأمين البيانات - يرجى المحاولة يدوياً'}`;
+            msg.style.color = '#ef4444';
+            container.innerHTML = `<i class="fa-solid fa-circle-exclamation" style="font-size: 5rem; color: #ef4444; filter: drop-shadow(0 0 20px #ef4444);"></i>`;
+            if (fill) {
+                fill.style.background = '#ef4444';
+                fill.style.boxShadow = '0 0 15px #ef4444';
+            }
+        }
     }
 
     isAdmin() { return this.currentUser && this.currentUser.role === 'admin'; }

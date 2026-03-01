@@ -1485,16 +1485,48 @@ body {
 
     /* Top Bar Mobile Optimization */
     .top-bar {
-        padding: 0 15px;
+        padding: 0 10px;
         height: 70px;
         position: sticky !important;
         top: 0 !important;
         z-index: 1000 !important;
         background: rgba(11, 17, 32, 0.95) !important;
         backdrop-filter: blur(20px) !important;
-        /* Slightly taller for better touch targets */
-        justify-content: space-between !important;
-        gap: 15px;
+        justify-content: center !important;
+        /* Center search */
+        gap: 10px;
+    }
+
+    /* FIX: Hide clinic name on mobile to free up space for search */
+    .clinic-switcher-modern {
+        display: none !important;
+    }
+
+    .search-bar {
+        flex: 1 !important;
+        max-width: none !important;
+        margin: 0 !important;
+        display: flex !important;
+        /* Force show */
+        background: rgba(15, 23, 42, 0.9) !important;
+        border: 1px solid var(--accent-blue) !important;
+        height: 50px !important;
+    }
+
+    .search-bar input {
+        width: 100% !important;
+        font-size: 1.1rem !important;
+        text-align: right !important;
+    }
+
+    .top-bar-shortcuts {
+        display: none !important;
+        /* Hide shortcuts on main top bar for mobile */
+    }
+
+    .sync-sensor {
+        display: none !important;
+        /* Hide tiny sync sensor from top bar */
     }
 
     .top-ticker-bar {
@@ -1976,5 +2008,77 @@ body.theme-royal .theme-option:hover {
 @media (max-width: 768px) {
     .desktop-only {
         display: none !important;
+    }
+}
+
+/* Securing Overlay (Full-screen backup animation) */
+.securing-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100vh;
+    background: radial-gradient(circle at center, #1e293b 0%, #07090f 100%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 99999;
+    color: #fff;
+    font-family: 'Tajawal', sans-serif;
+    transition: all 0.5s ease-in-out;
+}
+
+.securing-content {
+    text-align: center;
+    animation: fadeInUp 0.8s ease-out;
+}
+
+.securing-icon {
+    font-size: 5rem;
+    color: var(--accent-blue);
+    margin-bottom: 25px;
+    filter: drop-shadow(0 0 20px rgba(0, 234, 255, 0.4));
+}
+
+.securing-spinner {
+    width: 60px;
+    height: 60px;
+    border: 4px solid rgba(0, 234, 255, 0.1);
+    border-top: 4px solid var(--accent-blue);
+    border-radius: 50%;
+    margin: 20px auto;
+    animation: spin 1s linear infinite;
+    box-shadow: 0 0 15px rgba(0, 234, 255, 0.2);
+}
+
+.securing-title {
+    font-size: 2.2rem;
+    font-weight: 900;
+    margin-bottom: 10px;
+    letter-spacing: 1px;
+}
+
+.securing-status {
+    font-size: 1.1rem;
+    color: var(--text-secondary);
+    font-weight: 600;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
     }
 }
