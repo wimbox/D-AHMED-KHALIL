@@ -1854,6 +1854,146 @@ body.theme-gold .btn-neuro:hover {
     }
 }
 
+/* =========================================
+   ألوان الأيقونات الفردية - ثيم Deep Navy (Blue)
+   ========================================= */
+
+/* اللوجو - Neon سيان */
+body.theme-blue .sidebar-logo i {
+    color: #00eaff !important;
+    filter: drop-shadow(0 0 10px rgba(0, 234, 255, 0.8)) !important;
+}
+
+/* الرئيسية - أزرق سماوي نيون */
+body.theme-blue .nav-item[data-view="dashboard"] i {
+    color: #38bdf8 !important;
+    filter: drop-shadow(0 0 8px rgba(56, 189, 248, 0.6)) !important;
+}
+
+body.theme-blue .nav-item[data-view="dashboard"] span {
+    color: #7dd3fc;
+}
+
+/* سجلات المرضى - أخضر زمردي */
+body.theme-blue .nav-item[data-view="patients"] i {
+    color: #34d399 !important;
+    filter: drop-shadow(0 0 8px rgba(52, 211, 153, 0.6)) !important;
+}
+
+body.theme-blue .nav-item[data-view="patients"] span {
+    color: #6ee7b7;
+}
+
+/* جدول المواعيد - ذهبي عنبري */
+body.theme-blue .nav-item[data-view="appointments"] i {
+    color: #fbbf24 !important;
+    filter: drop-shadow(0 0 8px rgba(251, 191, 36, 0.5)) !important;
+}
+
+body.theme-blue .nav-item[data-view="appointments"] span {
+    color: #fcd34d;
+}
+
+/* الإعدادات - فضي لامع */
+body.theme-blue .nav-item[data-view="settings"] i {
+    color: #94a3b8 !important;
+    filter: drop-shadow(0 0 6px rgba(148, 163, 184, 0.4)) !important;
+}
+
+body.theme-blue .nav-item[data-view="settings"] span {
+    color: #cbd5e1;
+}
+
+/* شاشة الانتظار - بنفسجي نيون */
+body.theme-blue .nav-item[onclick*="queue-display"] i {
+    color: #a78bfa !important;
+    filter: drop-shadow(0 0 8px rgba(167, 139, 250, 0.6)) !important;
+}
+
+body.theme-blue .nav-item[onclick*="queue-display"] span {
+    color: #c4b5fd;
+}
+
+/* التوصيات العلاجية - تركواز حيوي */
+body.theme-blue .nav-item[data-view="templates"] i {
+    color: #22d3ee !important;
+    filter: drop-shadow(0 0 8px rgba(34, 211, 238, 0.6)) !important;
+}
+
+body.theme-blue .nav-item[data-view="templates"] span {
+    color: #67e8f9;
+}
+
+/* =========================================
+   ألوان الأيقونات الفردية - ثيم Muted Bronze (Gold)
+   ========================================= */
+
+/* اللوجو - ذهبي ملكي */
+body.theme-gold .sidebar-logo i {
+    color: #f59e0b !important;
+    filter: drop-shadow(0 0 10px rgba(245, 158, 11, 0.7)) !important;
+}
+
+/* الرئيسية - ذهبي دافئ */
+body.theme-gold .nav-item[data-view="dashboard"] i {
+    color: #fbbf24 !important;
+    filter: drop-shadow(0 0 8px rgba(251, 191, 36, 0.5)) !important;
+}
+
+body.theme-gold .nav-item[data-view="dashboard"] span {
+    color: #fcd34d;
+}
+
+/* سجلات المرضى - أخضر ترابي دافئ */
+body.theme-gold .nav-item[data-view="patients"] i {
+    color: #4ade80 !important;
+    filter: drop-shadow(0 0 8px rgba(74, 222, 128, 0.4)) !important;
+}
+
+body.theme-gold .nav-item[data-view="patients"] span {
+    color: #86efac;
+}
+
+/* جدول المواعيد - برتقالي ذهبي */
+body.theme-gold .nav-item[data-view="appointments"] i {
+    color: #fb923c !important;
+    filter: drop-shadow(0 0 8px rgba(251, 146, 60, 0.5)) !important;
+}
+
+body.theme-gold .nav-item[data-view="appointments"] span {
+    color: #fdba74;
+}
+
+/* الإعدادات - فضي دافئ */
+body.theme-gold .nav-item[data-view="settings"] i {
+    color: #a8a096 !important;
+    filter: drop-shadow(0 0 5px rgba(168, 160, 150, 0.3)) !important;
+}
+
+body.theme-gold .nav-item[data-view="settings"] span {
+    color: #c8c0b5;
+}
+
+/* شاشة الانتظار - وردي بنفسجي */
+body.theme-gold .nav-item[onclick*="queue-display"] i {
+    color: #e879f9 !important;
+    filter: drop-shadow(0 0 8px rgba(232, 121, 249, 0.4)) !important;
+}
+
+body.theme-gold .nav-item[onclick*="queue-display"] span {
+    color: #f0abfc;
+}
+
+/* التوصيات العلاجية - تركواز عميق */
+body.theme-gold .nav-item[data-view="templates"] i {
+    color: #2dd4bf !important;
+    filter: drop-shadow(0 0 8px rgba(45, 212, 191, 0.4)) !important;
+}
+
+body.theme-gold .nav-item[data-view="templates"] span {
+    color: #5eead4;
+}
+
 
 
 /* --- 4. THEME: CLEAR ALABASTER (Inverted Slate Rock) --- */
@@ -1961,10 +2101,92 @@ body.theme-royal .nav-item {
     font-weight: 700;
 }
 
+/* ألوان الأيقونات الفردية - ثيم Royal الفاتح */
+
+/* الرئيسية - أزرق سماوي */
+body.theme-royal .nav-item[data-view="dashboard"] i {
+    color: #0ea5e9 !important;
+    filter: drop-shadow(0 2px 6px rgba(14, 165, 233, 0.3)) !important;
+}
+
+/* سجلات المرضى - أخضر صحي */
+body.theme-royal .nav-item[data-view="patients"] i {
+    color: #10b981 !important;
+    filter: drop-shadow(0 2px 6px rgba(16, 185, 129, 0.3)) !important;
+}
+
+/* جدول المواعيد - ذهبي برتقالي */
+body.theme-royal .nav-item[data-view="appointments"] i {
+    color: #f59e0b !important;
+    filter: drop-shadow(0 2px 6px rgba(245, 158, 11, 0.3)) !important;
+}
+
+/* الإعدادات - رمادي رصاصي أنيق */
+body.theme-royal .nav-item[data-view="settings"] i {
+    color: #64748b !important;
+    filter: drop-shadow(0 2px 4px rgba(100, 116, 139, 0.25)) !important;
+}
+
+/* شاشة الانتظار - بنفسجي */
+body.theme-royal .nav-item[onclick*="queue-display"] i {
+    color: #8b5cf6 !important;
+    filter: drop-shadow(0 2px 6px rgba(139, 92, 246, 0.3)) !important;
+}
+
+/* التوصيات العلاجية - تركواز طبي */
+body.theme-royal .nav-item[data-view="templates"] i {
+    color: #06b6d4 !important;
+    filter: drop-shadow(0 2px 6px rgba(6, 182, 212, 0.3)) !important;
+}
+
+/* اللوجو (Brain) - بنفسجي طبي */
+body.theme-royal .sidebar-logo i {
+    color: #6366f1 !important;
+    filter: drop-shadow(0 2px 8px rgba(99, 102, 241, 0.35)) !important;
+}
+
+/* ألوان النصوص المقابلة لكل أيقونة */
+body.theme-royal .nav-item[data-view="dashboard"] span {
+    color: #0369a1;
+}
+
+body.theme-royal .nav-item[data-view="patients"] span {
+    color: #065f46;
+}
+
+body.theme-royal .nav-item[data-view="appointments"] span {
+    color: #92400e;
+}
+
+body.theme-royal .nav-item[data-view="settings"] span {
+    color: #475569;
+}
+
+body.theme-royal .nav-item[onclick*="queue-display"] span {
+    color: #5b21b6;
+}
+
+body.theme-royal .nav-item[data-view="templates"] span {
+    color: #0e7490;
+}
+
 body.theme-royal .search-bar {
     background: #ffffff;
-    border: 1px solid rgba(0, 0, 0, 0.05);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+body.theme-royal .search-bar input {
+    color: #0f172a !important;
+}
+
+body.theme-royal .search-bar input::placeholder {
+    color: #64748b !important;
+    opacity: 1;
+}
+
+body.theme-royal .search-bar i {
+    color: #334155 !important;
 }
 
 /* Fix Visibility: Remove Glows in Light Theme */
@@ -2083,4 +2305,132 @@ body.theme-royal .theme-option:hover {
         opacity: 1;
         transform: translateY(0);
     }
+}
+
+/* =========================================
+   ألوان الأيقونات الفردية - الشريط العلوي (Top Bar)
+   ========================================= */
+
+/* --- Theme Deep Navy (Blue) --- */
+body.theme-blue .clinic-drop-btn i {
+    color: #00eaff !important;
+    filter: drop-shadow(0 0 8px rgba(0, 234, 255, 0.6)) !important;
+}
+
+body.theme-blue .search-bar i.fa-magnifying-glass {
+    color: #94a3b8 !important;
+}
+
+body.theme-blue .header-nav-btn[href*="editor"] i {
+    color: #22d3ee !important;
+    filter: drop-shadow(0 0 6px rgba(34, 211, 238, 0.5)) !important;
+}
+
+body.theme-blue .header-nav-btn[href*="finance"] i {
+    color: #fbbf24 !important;
+    filter: drop-shadow(0 0 6px rgba(251, 191, 36, 0.5)) !important;
+}
+
+body.theme-blue #btn-theme-switcher i {
+    color: #a78bfa !important;
+    filter: drop-shadow(0 0 6px rgba(167, 139, 250, 0.5)) !important;
+}
+
+body.theme-blue #btn-toggle-sound i {
+    color: #34d399 !important;
+    filter: drop-shadow(0 0 6px rgba(52, 211, 153, 0.5)) !important;
+}
+
+body.theme-blue #btn-help-center i {
+    color: #f87171 !important;
+    filter: drop-shadow(0 0 6px rgba(248, 113, 113, 0.5)) !important;
+}
+
+body.theme-blue .sync-sensor button i {
+    color: #38bdf8 !important;
+    filter: drop-shadow(0 0 6px rgba(56, 189, 248, 0.5)) !important;
+}
+
+/* --- Theme Muted Bronze (Gold) --- */
+body.theme-gold .clinic-drop-btn i {
+    color: #f59e0b !important;
+    filter: drop-shadow(0 0 8px rgba(245, 158, 11, 0.6)) !important;
+}
+
+body.theme-gold .search-bar i.fa-magnifying-glass {
+    color: #a8a096 !important;
+}
+
+body.theme-gold .header-nav-btn[href*="editor"] i {
+    color: #2dd4bf !important;
+    filter: drop-shadow(0 0 6px rgba(45, 212, 191, 0.4)) !important;
+}
+
+body.theme-gold .header-nav-btn[href*="finance"] i {
+    color: #fb923c !important;
+    filter: drop-shadow(0 0 6px rgba(251, 146, 60, 0.5)) !important;
+}
+
+body.theme-gold #btn-theme-switcher i {
+    color: #e879f9 !important;
+    filter: drop-shadow(0 0 6px rgba(232, 121, 249, 0.4)) !important;
+}
+
+body.theme-gold #btn-toggle-sound i {
+    color: #4ade80 !important;
+    filter: drop-shadow(0 0 6px rgba(74, 222, 128, 0.4)) !important;
+}
+
+body.theme-gold #btn-help-center i {
+    color: #fb7185 !important;
+    filter: drop-shadow(0 0 6px rgba(251, 113, 133, 0.4)) !important;
+}
+
+body.theme-gold .sync-sensor button i {
+    color: #fbbf24 !important;
+    filter: drop-shadow(0 0 6px rgba(251, 191, 36, 0.4)) !important;
+}
+
+/* --- Theme Clear Alabaster (Royal) --- */
+body.theme-royal .clinic-drop-btn i {
+    color: #6366f1 !important;
+    filter: drop-shadow(0 2px 4px rgba(99, 102, 241, 0.2)) !important;
+}
+
+/* Any non-overriden search bar icons are covered earlier in royal css */
+body.theme-royal .header-nav-btn[href*="editor"] i {
+    color: #06b6d4 !important;
+    filter: drop-shadow(0 2px 4px rgba(6, 182, 212, 0.2)) !important;
+}
+
+body.theme-royal .header-nav-btn[href*="editor"] span {
+    color: #1e3a8a !important;
+    /* كحلي */
+    font-weight: 800 !important;
+    /* عريض */
+}
+
+body.theme-royal .header-nav-btn[href*="finance"] i {
+    color: #d97706 !important;
+    filter: drop-shadow(0 2px 4px rgba(217, 119, 6, 0.2)) !important;
+}
+
+body.theme-royal #btn-theme-switcher i {
+    color: #8b5cf6 !important;
+    filter: drop-shadow(0 2px 4px rgba(139, 92, 246, 0.2)) !important;
+}
+
+body.theme-royal #btn-toggle-sound i {
+    color: #059669 !important;
+    filter: drop-shadow(0 2px 4px rgba(5, 150, 105, 0.2)) !important;
+}
+
+body.theme-royal #btn-help-center i {
+    color: #e11d48 !important;
+    filter: drop-shadow(0 2px 4px rgba(225, 29, 72, 0.2)) !important;
+}
+
+body.theme-royal .sync-sensor button i {
+    color: #0284c7 !important;
+    filter: drop-shadow(0 2px 4px rgba(2, 132, 199, 0.2)) !important;
 }
