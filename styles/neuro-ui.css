@@ -1533,11 +1533,13 @@ body {
         display: none !important;
     }
 
-    /* Hide Less Important Elements + Sound/Sync */
+    /* Hide Less Important Elements + Sound/Sync + Desktop Backups */
     .clinic-selector-container,
     .top-bar-shortcuts,
     .sync-sensor,
-    #btn-toggle-sound {
+    #btn-toggle-sound,
+    #backup-alert-banner,
+    #backup-settings-card {
         display: none !important;
     }
 

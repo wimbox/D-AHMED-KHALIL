@@ -1897,7 +1897,7 @@ class DashboardUI {
                             <p style="color: #ef4444; font-size: 0.8rem; margin-top: 10px; font-weight: 700;">⚠️ سيتم مسح واستبدال كافة البيانات</p>
                         </div>
 
-                        <div style="padding: 25px; border: 2px solid var(--accent-primary); border-radius: 20px; text-align: center; background: rgba(0, 234, 255, 0.04); grid-column: span 2; box-shadow: 0 5px 15px rgba(0,0,0,0.02);">
+                        <div id="backup-settings-card" style="padding: 25px; border: 2px solid var(--accent-primary); border-radius: 20px; text-align: center; background: rgba(0, 234, 255, 0.04); grid-column: span 2; box-shadow: 0 5px 15px rgba(0,0,0,0.02);">
                             <h4 style="color: var(--accent-primary); margin-bottom: 15px; font-weight: 900; font-size: 1.2rem;"><i class="fa-solid fa-folder-tree"></i> درع الحماية الإجباري (Mandatory Auto-Guardian)</h4>
                             <p style="color: var(--text-secondary); font-size: 1rem; margin-bottom: 20px; line-height: 1.5; font-weight: 600;">يتم حفظ نسخة احتياطية "تلقائية وإجبارية" في مسار آمن على جهازك عند كل تعديل وعند الخروج من البرنامج.</p>
                             
