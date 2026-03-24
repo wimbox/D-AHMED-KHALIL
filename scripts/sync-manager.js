@@ -806,7 +806,7 @@ class SyncManager {
         }, (error) => {
             console.error("Cloud Observer error:", error);
             this.cloudStatus = 'error';
-            this.updateSyncUI();
+            this.dispatchSyncError(error);
         });
     }
 
@@ -1312,7 +1312,7 @@ class SyncManager {
 
         try {
             this.cloudStatus = 'syncing';
-            this.updateSyncUI();
+            this.dispatchSyncStatus('syncing');
 
             const doc = await db.collection('app_data').doc('clinic_master_data').get();
             if (doc.exists) {
@@ -1385,8 +1385,8 @@ class SyncManager {
         } catch (error) {
             console.error("Cloud pull failed:", error);
             this.cloudStatus = 'error';
+            this.dispatchSyncError(error);
         }
-        this.updateSyncUI();
         return false;
     }
 }
