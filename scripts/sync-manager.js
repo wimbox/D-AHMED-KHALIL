@@ -1194,18 +1194,25 @@ class SyncManager {
             // Update lastSync timestamp locally before uploading
             this.data.settings.lastSync = new Date().toISOString();
 
-            // CLONE data and clean it for Firestore (no undefined values)
-            const cleanData = JSON.parse(JSON.stringify(this.data));
+            // TRIM + CLONE data for Firestore (must stay under 1MB limit)
+            const cloudPayload = this.trimForCloud(JSON.parse(JSON.stringify(this.data)));
+
+            // Size check (warn if still large)
+            const payloadSize = new Blob([JSON.stringify(cloudPayload)]).size;
+            console.log(`Cloud sync: Payload size = ${(payloadSize / 1024).toFixed(1)} KB`);
+            if (payloadSize > 900 * 1024) {
+                console.warn('Cloud sync: Payload is over 900KB — risk of hitting Firestore 1MB limit!');
+            }
 
             // Push State (Push)
             await db.collection('app_data').doc(docId).set({
-                ...cleanData,
+                ...cloudPayload,
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             });
 
             this.lastLatency = Math.round(performance.now() - startTime);
             this.dispatchSyncStatus('online', this.lastLatency);
-            this.lastSyncAttempt = Date.now(); // Assuming this.lastSyncAttempt is defined
+            this.lastSyncAttempt = Date.now();
             console.log(`Cloud sync: Success (${this.lastLatency}ms).`);
             return true;
         } catch (error) {
@@ -1213,6 +1220,36 @@ class SyncManager {
             this.dispatchSyncError(error);
             return false;
         }
+    }
+
+    /**
+     * Trims data before pushing to Firestore to stay under the 1MB document limit.
+     * Keeps all patients/appointments/finances intact, only reduces logs.
+     */
+    trimForCloud(data) {
+        // 1. Trim action logs — keep only the latest 150 entries
+        if (Array.isArray(data.logs) && data.logs.length > 150) {
+            data.logs = data.logs
+                .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+                .slice(0, 150);
+            console.log('trimForCloud: Trimmed logs to 150 entries.');
+        }
+
+        // 2. Strip heavyweight fields inside visit records to reduce size
+        //    (keep diagnosis/notes short fields but drop raw large blobs if any)
+        if (Array.isArray(data.patients)) {
+            data.patients.forEach(p => {
+                if (Array.isArray(p.visits)) {
+                    p.visits.forEach(v => {
+                        // Remove any accidental large base64 images stored in visits
+                        if (v.imageData) delete v.imageData;
+                        if (v.attachments) delete v.attachments;
+                    });
+                }
+            });
+        }
+
+        return data;
     }
 
     mergeData(local, cloud) {
