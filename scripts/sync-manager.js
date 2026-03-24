@@ -145,7 +145,6 @@ class SyncManager {
     notifyDataChanged() {
         // Dispatch event for UI components to refresh
         window.dispatchEvent(new CustomEvent('syncDataRefreshed', { detail: this.data }));
-        this.updateSyncUI();
     }
 
     loadLocal() {
