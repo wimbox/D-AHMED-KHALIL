@@ -1025,8 +1025,11 @@
                 latencyEl.textContent = 'جاري المزامنة...';
                 latencyEl.style.color = '#f59e0b';
             } else if (status === 'error') {
-                latencyEl.textContent = 'خطأ اتصال';
+                const errorMsg = e.detail.message || 'خطأ اتصال';
+                latencyEl.textContent = errorMsg;
                 latencyEl.style.color = '#ef4444';
+                // Adjust font size if message is long
+                latencyEl.style.fontSize = errorMsg.length > 20 ? '0.7rem' : '0.85rem';
             } else {
                 latencyEl.textContent = 'غير متصل';
                 latencyEl.style.color = '#64748b';
