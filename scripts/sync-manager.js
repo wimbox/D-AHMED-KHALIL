@@ -1146,6 +1146,8 @@ class SyncManager {
                 console.error("Cloud sync: PUSH BLOCKED. Local data is significantly smaller than Cloud. Protective lock engaged.");
                 if (window.showNeuroToast) window.showNeuroToast("خطأ: تم حظر المزامنة لأن البيانات المحلية ناقصة بشكل كبير. يرجى التحديث.", "error");
                 this.isPullDone = false; // Force re-pull
+                this.cloudStatus = 'error'; // Update UI
+                this.updateSyncUI();
                 return false;
             }
 
@@ -1158,6 +1160,8 @@ class SyncManager {
             if (hasDegradedData) {
                 console.error("Cloud sync: PUSH BLOCKED. Local names are missing while Cloud has them.");
                 this.isPullDone = false; // Force re-pull
+                this.cloudStatus = 'error'; // Update UI
+                this.updateSyncUI();
                 return false;
             }
         }
