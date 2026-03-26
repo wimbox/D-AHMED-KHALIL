@@ -70,7 +70,7 @@ class DashboardUI {
                 
                 try {
                     if (onConfirm) {
-                        const result = await onConfirm(overlay); // Pass overlay for direct manipulation
+                        const result = await onConfirm(overlay);
                         if (result === false) {
                             confirmBtn.disabled = false;
                             confirmBtn.innerHTML = originalText;
@@ -80,7 +80,7 @@ class DashboardUI {
                     overlay.remove();
                 } catch (err) {
                     console.error("Modal Action Error:", err);
-                    window.showNeuroToast("حدث خطأ أثناء تنفيذ العملية", "error");
+                    alert("خطأ في تنفيذ العملية: " + err.message); // Visual fallback
                     confirmBtn.disabled = false;
                     confirmBtn.innerHTML = originalText;
                 }
@@ -2178,37 +2178,44 @@ class DashboardUI {
         const reader = new FileReader();
         reader.onload = (e) => {
             const content = e.target.result;
-            window.showNeuroModal('تأكيد الاستعادة الكاملة (JSON)', 'هل أنت متأكد؟ سيتم حذف جميع البيانات الحالية واستبدالها بمحتوى الملف المرفوع. هذه العملية لا يمكن التراجع عنها.', async (modalOverlay) => {
+            
+            // Verify if JSON is even valid before showing modal
+            try {
+                JSON.parse(content);
+            } catch (e) {
+                alert("الملف المختار ليس ملف JSON صحيح.");
+                return;
+            }
+
+            window.showNeuroModal('تأكيد الاستعادة الكاملة (JSON)', 'هل أنت متأكد؟ سيتم حذف جميع البيانات الحالية واستبدالها بمحتوى الملف المرفوع.', async (modalOverlay) => {
                 try {
-                    if (window.syncManager.restoreBackup(content)) {
-                        window.soundManager?.playSuccess();
+                    // Direct access to syncManager to avoid any scope issues
+                    if (window.syncManager && window.syncManager.restoreBackup(content)) {
+                        const msgContainer = modalOverlay.querySelector('.neuro-modal-msg');
+                        if (msgContainer) {
+                            msgContainer.innerHTML += '<div style="margin-top:15px; padding:10px; color:#10b981; border:1px solid #10b981; border-radius:8px;">✅ تم الحفظ محلياً.. جاري المزامنة...</div>';
+                        }
 
-                        // Force immediate cloud sync and wait for it
-                        if (window.syncManager && typeof db !== 'undefined') {
-                            const msgContainer = modalOverlay.querySelector('.neuro-modal-msg');
-                            const statusMsg = document.createElement('div');
-                            statusMsg.style.marginTop = "15px";
-                            statusMsg.innerHTML = '<div style="text-align:center; padding:15px; color:#00eaff; background:rgba(0,234,255,0.05); border-radius:10px; border:1px dashed #00eaff;"><i class="fa-solid fa-sync fa-spin"></i> جاري رفع البيانات للسحابة... يرجى الانتظار</div>';
-                            if (msgContainer) msgContainer.appendChild(statusMsg);
-
+                        // Try Sync
+                        if (typeof db !== 'undefined') {
                             await window.syncManager.triggerCloudSync();
                         }
 
-                        window.showNeuroToast('تم استعادة البيانات بنجاح! جارِ إعادة التشغيل..');
-                        setTimeout(() => window.location.reload(), 1500);
+                        alert('تم استعادة البيانات بنجاح! سيتم الآن إعادة تحميل الصفحة.');
+                        window.location.reload();
                         return true;
                     } else {
-                        window.showNeuroToast('خطأ: الملف المرفوع غير صالح.', 'error');
+                        alert('فشل تطبيق النسخة الاحتياطية. قد يكون الملف تالفاً.');
                         return false;
                     }
                 } catch (restoreErr) {
-                    console.error("Critical Restore Error:", restoreErr);
+                    alert("خطأ أثناء الاستعادة: " + restoreErr.message);
                     return false;
                 }
             });
         };
         reader.readAsText(file);
-        event.target.value = ''; // Reset input
+        event.target.value = ''; 
     }
 
     handleRestoreCSV(event) {
