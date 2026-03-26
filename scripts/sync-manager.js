@@ -947,8 +947,8 @@ class SyncManager {
     exportPatientsCSV() {
         if (!this.data.patients || this.data.patients.length === 0) return null;
         
-        // Use semicolon (;) as it works better with Arabic/European Excel versions
-        const header = ["كود المريض", "الاسم", "السن", "الهاتف", "آخر زيارة"].map(h => `"${h}"`).join(';');
+        // TAB (\t) is the most robust separator for different Excel locales
+        const header = ["كود المريض", "الاسم", "السن", "الهاتف", "آخر زيارة"].join('\t');
         
         const rows = this.data.patients.map(p => {
             const dataRow = [
@@ -958,12 +958,12 @@ class SyncManager {
                 p.phone || '---',
                 p.lastUpdated ? new Date(p.lastUpdated).toLocaleDateString('ar-EG') : '---'
             ];
-            return dataRow.map(v => `"${v}"`).join(';');
+            return dataRow.join('\t');
         });
 
-        // Prepend UTF-8 BOM AND 'sep=;' hint for Excel to split columns correctly
+        // Prepend UTF-8 BOM for Excel to recognize Arabic characters correctly
         const csvContent = [header, ...rows].join('\n');
-        return '\uFEFF' + 'sep=;' + '\n' + csvContent;
+        return '\uFEFF' + csvContent;
     }
 
     isBackupOverdue() {
