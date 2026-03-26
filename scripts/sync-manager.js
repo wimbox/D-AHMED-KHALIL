@@ -857,6 +857,35 @@ class SyncManager {
         return JSON.stringify(this.data);
     }
 
+    getBackupInfo() {
+        return {
+            primaryPath: window.electronAPI ? "D:\\NeuroClinic_Backups (إجباري)" : (this.backupHandle ? "المجلد المرتبط" : "غير محدد"),
+            isEnabled: this.isAutoBackupEnabled,
+            lastBackup: this.data.settings?.lastBackup || 'لم يتم عمل نسخة بعد'
+        };
+    }
+
+    markBackupSuccessful() {
+        this.data.settings.lastBackup = new Date().toISOString();
+        this.saveLocal();
+        window.dispatchEvent(new CustomEvent('backupStatusChanged'));
+    }
+
+    exportPatientsCSV() {
+        if (!this.data.patients || this.data.patients.length === 0) return null;
+        
+        const header = ["كود المريض", "الاسم", "السن", "الهاتف", "آخر زيارة"];
+        const rows = this.data.patients.map(p => [
+            p.patientCode || '---',
+            p.name || '---',
+            p.age || '---',
+            p.phone || '---',
+            p.lastUpdated ? new Date(p.lastUpdated).toLocaleDateString('ar-EG') : '---'
+        ]);
+
+        return [header.join(','), ...rows.map(r => r.join(','))].join('\n');
+    }
+
     isBackupOverdue() {
         if (!this.data.settings?.lastBackup) return true;
         const last = new Date(this.data.settings.lastBackup);
