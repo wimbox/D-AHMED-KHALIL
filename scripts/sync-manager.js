@@ -14,7 +14,6 @@ class SyncManager {
         this.DB_KEY = 'neuro_clinic_data_v1';
         this.data = this.loadLocal();
         this.isNewSession = !localStorage.getItem(this.DB_KEY);
-<<<<<<< HEAD
         this.isPullDone = false; 
         this.isMigrating = false;
         this.syncQueue = []; 
@@ -23,12 +22,6 @@ class SyncManager {
 
         this.backupHandle = null; // System directory handle for Auto-Guardian
         this.isAutoBackupEnabled = false;
-
-=======
-        this.isPullDone = false;
-        this.syncQueue = [];
-        this.isSyncing = false;
->>>>>>> 1463f3ab9a5775dd40c9c1d34ae594ca0fedda0e
         this.cloudStatus = 'offline';
         this.lastLatency = 0;
         this.syncTimeout = null;
@@ -43,14 +36,9 @@ class SyncManager {
                 this.notifyDataChanged();
             }
         });
-<<<<<<< HEAD
-
         // 2. Cross-Device Sync: Initialize Fragmented Observer
         // Higher delay to ensure Firebase is fully ready
         setTimeout(() => this.startCloudObserver(), 1500);
-=======
-        setTimeout(() => this.startCloudObserver(), 300);
->>>>>>> 1463f3ab9a5775dd40c9c1d34ae594ca0fedda0e
     }
 
     notifyDataChanged() {
@@ -90,8 +78,6 @@ class SyncManager {
         if (this.syncTimeout) clearTimeout(this.syncTimeout);
         this.syncTimeout = setTimeout(async () => {
             this.triggerCloudSync();
-<<<<<<< HEAD
-
             // --- Auto-Guardian Backup Logic ---
             if (this.isAutoBackupEnabled && this.backupHandle) {
                 try {
@@ -802,46 +788,6 @@ class SyncManager {
         } catch (error) {
             console.error("[SyncManager] Fragmented Cloud Sync Failed:", error);
             this.cloudStatus = 'error';
-=======
-        }, 500);
-    }
-
-    async triggerCloudSync() {
-        if (typeof db === 'undefined' || !db) return false;
-        
-        try {
-            this.dispatchSyncStatus('syncing');
-            const startTime = performance.now();
-            const docId = 'clinic_master_data';
-
-            this.data.settings.lastSync = new Date().toISOString();
-            
-            // AGGRESSIVE TRIM: Keep only last 50 logs to ensure it fits under 1MB
-            if (this.data.logs && this.data.logs.length > 50) {
-                this.data.logs = this.data.logs.slice(0, 50);
-            }
-            if (this.data.auditLog && this.data.auditLog.length > 50) {
-                this.data.auditLog = this.data.auditLog.slice(0, 50);
-            }
-
-            const cleanPayload = JSON.parse(JSON.stringify(this.data));
-            
-            // Size Check for Console
-            const size = new Blob([JSON.stringify(cleanPayload)]).size;
-            console.log(`Sync Manager: Payload Size is ${(size / 1024).toFixed(1)} KB`);
-
-            await db.collection('app_data').doc(docId).set({
-                ...cleanPayload,
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            });
-
-            this.lastLatency = Math.round(performance.now() - startTime);
-            this.dispatchSyncStatus('online', this.lastLatency);
-            return true;
-        } catch (error) {
-            console.error("Cloud sync failed:", error);
-            this.dispatchSyncStatus('error');
->>>>>>> 1463f3ab9a5775dd40c9c1d34ae594ca0fedda0e
             return false;
         } finally {
             this.isSyncing = false;
@@ -856,72 +802,44 @@ class SyncManager {
         }
     }
 
-    startCloudObserver() {
-        if (typeof db === 'undefined' || !db) return;
-        db.collection('app_data').doc('clinic_master_data').onSnapshot((doc) => {
-            if (doc.exists) {
-                const cloudData = doc.data();
-                const cloudTime = cloudData.updatedAt?.toDate?.()?.getTime() || 0;
-                const lastLocalUpdate = new Date(this.data.settings?.lastLocalUpdate || 0).getTime();
+    // --- Core Sync Support Methods ---
+    logAction(user, action, details, meta = null) {
+        if (!this.data.auditLog) this.data.auditLog = [];
+        this.data.auditLog.unshift({
+            timestamp: new Date().toISOString(),
+            user,
+            action,
+            details,
+            meta
+        });
+        // Self-pruning: Keep only last 1000 logs locally
+        if (this.data.auditLog.length > 1000) {
+            this.data.auditLog = this.data.auditLog.slice(0, 1000);
+        }
+    }
 
-                if (this.isNewSession || cloudTime > lastLocalUpdate) {
-                    this.data = cloudData;
-                    localStorage.setItem(this.DB_KEY, JSON.stringify(this.data));
-                    this.notifyDataChanged();
-                }
-                this.dispatchSyncStatus('online');
-            }
-            this.isNewSession = false;
-        }, (err) => this.dispatchSyncStatus('error'));
+    getBackupJSON() {
+        return JSON.stringify(this.data);
+    }
+
+    isBackupOverdue() {
+        if (!this.data.settings?.lastBackup) return true;
+        const last = new Date(this.data.settings.lastBackup);
+        const diff = Date.now() - last.getTime();
+        return diff > (24 * 60 * 60 * 1000); // More than 24 hours
+    }
+
+    updateSyncUI() {
+        const latency = this.lastLatency || 0;
+        window.dispatchEvent(new CustomEvent('syncStatusChanged', { detail: { status: this.cloudStatus, latency } }));
     }
 
     dispatchSyncStatus(status, latency = 0) {
         this.cloudStatus = status;
         this.lastLatency = latency;
-        window.dispatchEvent(new CustomEvent('syncStatusChanged', { detail: { status, latency } }));
+        this.updateSyncUI();
     }
 
-    getPatients() { return this.data.patients || []; }
-    getClinics() { return this.data.clinics || []; }
-    getActiveClinic() {
-        const id = this.data.settings?.activeClinicId || 'clinic-default';
-        return this.data.clinics?.find(c => c.id === id) || this.data.clinics?.[0];
-    }
-    setActiveClinic(id) {
-        if (!this.data.settings) this.data.settings = {};
-        this.data.settings.activeClinicId = id;
-        localStorage.setItem('neuro_active_clinic_id', id);
-        this.saveLocal();
-        return true;
-    }
-    getPatientsByClinic(clinicId = null) {
-        const target = clinicId || this.data.settings?.activeClinicId || 'clinic-default';
-        const alexId = 'clinic-default';
-        return (this.data.patients || []).filter(p => (target === alexId) ? (!p.clinicId || p.clinicId === alexId) : p.clinicId === target);
-    }
-    getAppointmentsByClinic(clinicId = null) {
-        const target = clinicId || this.data.settings?.activeClinicId || 'clinic-default';
-        const alexId = 'clinic-default';
-        return (this.data.appointments || []).filter(a => (target === alexId) ? (!a.clinicId || a.clinicId === alexId) : a.clinicId === target);
-    }
-    getTransactionsByClinic(clinicId = null) {
-        const target = clinicId || this.data.settings?.activeClinicId || 'clinic-default';
-        const alexId = 'clinic-default';
-        return (this.data.finances?.transactions || []).filter(t => (target === alexId) ? (!t.clinicId || t.clinicId === alexId) : t.clinicId === target);
-    }
-
-    upsertPatient(patient) {
-        const idx = (this.data.patients || []).findIndex(p => p.id === patient.id);
-        if (idx > -1) {
-            this.data.patients[idx] = { ...this.data.patients[idx], ...patient };
-        } else {
-            this.data.settings.lastPatientCode = (this.data.settings.lastPatientCode || 100) + 1;
-            this.data.patients.push({ ...patient, id: crypto.randomUUID(), patientCode: this.data.settings.lastPatientCode, visits: [] });
-        }
-        this.saveLocal();
-    }
-
-<<<<<<< HEAD
     /**
      * Legacy Cloud Pull: Now used for Fragmented Recovery.
      */
@@ -983,23 +901,6 @@ class SyncManager {
             });
         }
         return clean;
-=======
-    async pullFromCloud() {
-        if (typeof db === 'undefined' || !db) return false;
-        try {
-            this.dispatchSyncStatus('syncing');
-            const doc = await db.collection('app_data').doc('clinic_master_data').get();
-            if (doc.exists) {
-                this.data = doc.data();
-                localStorage.setItem(this.DB_KEY, JSON.stringify(this.data));
-                this.isPullDone = true;
-                this.notifyDataChanged();
-                this.dispatchSyncStatus('online');
-                return true;
-            }
-        } catch (e) { this.dispatchSyncStatus('error'); }
-        return false;
->>>>>>> 1463f3ab9a5775dd40c9c1d34ae594ca0fedda0e
     }
 }
 
