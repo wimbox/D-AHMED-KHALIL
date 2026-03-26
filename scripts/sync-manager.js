@@ -947,6 +947,7 @@ class SyncManager {
     exportPatientsCSV() {
         if (!this.data.patients || this.data.patients.length === 0) return null;
         
+<<<<<<< HEAD
         const header = ["كود المريض", "الاسم", "السن", "الهاتف", "آخر زيارة"];
         const rows = this.data.patients.map(p => {
             return [
@@ -960,6 +961,34 @@ class SyncManager {
 
         const csvContent = [header.map(h => `"${h}"`).join(';'), ...rows].join('\n');
         return '\uFEFF' + csvContent;
+=======
+        const headerLines = ["كود المريض", "الاسم", "السن", "الهاتف", "آخر زيارة"];
+        
+        let html = `
+            <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+            <head><meta charset="UTF-8"><!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>قائمة المرضى</x:Name><x:WorksheetOptions><x:DisplayRightToLeft/></x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]--></head>
+            <body>
+            <table border="1">
+                <tr style="background-color: #00eaff; color: #000; font-weight: bold;">
+                    ${headerLines.map(h => `<th>${h}</th>`).join('')}
+                </tr>
+        `;
+
+        this.data.patients.forEach(p => {
+            html += `
+                <tr>
+                    <td>${p.patientCode || '---'}</td>
+                    <td>${p.name || '---'}</td>
+                    <td>${p.age || '---'}</td>
+                    <td>${p.phone || '---'}</td>
+                    <td>${p.lastUpdated ? new Date(p.lastUpdated).toLocaleDateString('ar-EG') : '---'}</td>
+                </tr>
+            `;
+        });
+
+        html += `</table></body></html>`;
+        return html;
+>>>>>>> parent of 890be96 (ي)
     }
 
     isBackupOverdue() {
