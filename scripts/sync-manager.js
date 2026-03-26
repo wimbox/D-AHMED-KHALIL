@@ -37,8 +37,16 @@ class SyncManager {
             }
         });
         // 2. Cross-Device Sync: Initialize Fragmented Observer
-        // Higher delay to ensure Firebase is fully ready
-        setTimeout(() => this.startCloudObserver(), 1500);
+        // Aggressive initialization
+        setTimeout(() => {
+            console.log("[SyncManager] Initializing Cloud Observer...");
+            this.startCloudObserver();
+            // Force an initial pull if session is new
+            if (this.isNewSession) {
+                console.log("[SyncManager] New session detected, forcing cloud pull...");
+                this.pullFromCloud();
+            }
+        }, 1000);
     }
 
     notifyDataChanged() {
@@ -77,7 +85,9 @@ class SyncManager {
 
         if (this.syncTimeout) clearTimeout(this.syncTimeout);
         this.syncTimeout = setTimeout(async () => {
+            this.recalculatePatientCounter(); // Auto-fix numbering watermark before sync
             this.triggerCloudSync();
+            
             // --- Auto-Guardian Backup Logic ---
             if (this.isAutoBackupEnabled && this.backupHandle) {
                 try {
@@ -265,9 +275,12 @@ class SyncManager {
         const lastSyncTime = new Date(this.data.settings?.lastSync || 0).getTime();
         const lastLocalUpdateTime = new Date(this.data.settings?.lastLocalUpdate || 0).getTime();
 
-        // MERGE CRITERIA: Session Init OR Cloud is Newer
-        if (this.isNewSession || (cloudTime > lastSyncTime && cloudTime > lastLocalUpdateTime)) {
-            console.log("Cloud Observer: Reassembling Fragmented Data...");
+        // MERGE CRITERIA: Always prefer Cloud if newer OR if local is effectively standard/empty
+        // FORCE SYNC if patients are empty or if it's a new session
+        const localPatientsCount = this.data.patients?.length || 0;
+        
+        if (this.isNewSession || localPatientsCount === 0 || (cloudTime > lastSyncTime - 1000)) { 
+            console.log("%c [SyncManager] Cloud Observer: Syncing incoming data bits...", "color: #10b981; font-weight: bold;");
 
             // 1. Rebuild Patients
             let patients = [];
@@ -359,8 +372,28 @@ class SyncManager {
                 window.dashboardUI.updateStats();
                 window.dashboardUI.renderTodayAppointments();
             }
+            this.recalculatePatientCounter(); // Ensure next code is correct after merge
         }
         this.isPullDone = true;
+    }
+
+    recalculatePatientCounter() {
+        if (!this.data.patients) return;
+        
+        const codes = this.data.patients.map(p => {
+            const raw = String(p.patientCode || "");
+            const numericPart = raw.replace(/\D/g, ""); // Remove all non-digits
+            return numericPart ? (parseInt(numericPart) || 0) : 0;
+        });
+        
+        // Safety: ensure we always have at least [100] as a base
+        const validCodes = codes.filter(c => !isNaN(c));
+        const currentMax = Math.max(100, ...validCodes);
+        
+        if (!this.data.settings) this.data.settings = {};
+        this.data.settings.lastPatientCode = isNaN(currentMax) ? 100 : currentMax;
+        
+        console.log(`[SyncManager] Patient counter recalculated: ${this.data.settings.lastPatientCode}`);
     }
 
     // --- Patient Operations (CRUD) ---
@@ -376,7 +409,8 @@ class SyncManager {
             this.saveLocal();
             return this.data.patients[index];
         } else {
-            const nextCode = (this.data.settings.lastPatientCode || 0) + 1;
+            this.recalculatePatientCounter();
+            const nextCode = (this.data.settings.lastPatientCode || 100) + 1;
             this.data.settings.lastPatientCode = nextCode;
 
             const newPatient = {
@@ -584,7 +618,8 @@ class SyncManager {
             settings: {
                 currency: 'EGP',
                 timezone: 'Africa/Cairo',
-                workingHours: { start: '09:00', end: '21:00' }
+                workingHours: { start: '09:00', end: '21:00' },
+                startingCode: 1000 // Default start for new clinics
             },
             ...clinic
         };
