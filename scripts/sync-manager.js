@@ -853,6 +853,77 @@ class SyncManager {
         }
     }
 
+    restoreFromCSV(csvContent) {
+        try {
+            const lines = csvContent.split('\n');
+            if (lines.length < 2) return { success: false, error: 'الملف فارغ أو غير صحيح' };
+
+            const patients = this.data.patients || [];
+            let addedCount = 0;
+            const activeClinicId = this.data.settings.activeClinicId || 'clinic-default';
+
+            for (let i = 1; i < lines.length; i++) {
+                const line = lines[i].trim();
+                if (!line) continue;
+                const parts = line.split(',');
+                if (parts.length < 2) continue;
+
+                const name = parts[1]?.trim();
+                if (!name) continue;
+
+                // Avoid duplicates by name
+                if (!patients.some(p => p.name === name)) {
+                    patients.push({
+                        id: crypto.randomUUID(),
+                        patientCode: parts[0]?.trim() || 'NEW',
+                        name: name,
+                        age: parts[2]?.trim() || '',
+                        phone: parts[3]?.trim() || '',
+                        clinicId: activeClinicId,
+                        createdAt: new Date().toISOString(),
+                        lastUpdated: new Date().toISOString()
+                    });
+                    addedCount++;
+                }
+            }
+
+            this.data.patients = patients;
+            this.saveLocal();
+            this.recalculatePatientCounter();
+            this.notifyDataChanged();
+            return { success: true, count: addedCount };
+        } catch (err) {
+            console.error("CSV Restore error:", err);
+            return { success: false, error: err.message };
+        }
+    }
+
+    restoreBackup(jsonString) {
+        try {
+            const parsed = JSON.parse(jsonString);
+            if (!parsed.patients && !parsed.clinics) {
+                console.error("SyncManager: Invalid backup structure.");
+                return false;
+            }
+            
+            // Critical: Ensure settings exist and mark as dirty for cloud override
+            parsed.settings = parsed.settings || {};
+            parsed.settings.lastLocalUpdate = new Date().toISOString();
+            
+            this.data = parsed;
+            this.saveLocal();
+            
+            // Re-calculate numbering to ensure no overlap
+            this.recalculatePatientCounter();
+            
+            this.notifyDataChanged();
+            return true;
+        } catch (err) {
+            console.error("SyncManager: Backup Restoration Failed:", err);
+            return false;
+        }
+    }
+
     getBackupJSON() {
         return JSON.stringify(this.data);
     }
