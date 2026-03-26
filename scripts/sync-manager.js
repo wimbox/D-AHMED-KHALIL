@@ -956,7 +956,9 @@ class SyncManager {
             p.lastUpdated ? new Date(p.lastUpdated).toLocaleDateString('ar-EG') : '---'
         ]);
 
-        return [header.join(','), ...rows.map(r => r.join(','))].join('\n');
+        // Prepend UTF-8 BOM for Excel to recognize Arabic characters correctly
+        const csvContent = [header.join(','), ...rows.map(r => r.join(','))].join('\n');
+        return '\uFEFF' + csvContent;
     }
 
     isBackupOverdue() {
