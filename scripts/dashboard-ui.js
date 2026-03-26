@@ -2189,8 +2189,13 @@ class DashboardUI {
 
             window.showNeuroModal('تأكيد الاستعادة الكاملة (JSON)', 'هل أنت متأكد؟ سيتم حذف جميع البيانات الحالية واستبدالها بمحتوى الملف المرفوع.', async (modalOverlay) => {
                 try {
-                    // Direct access to syncManager to avoid any scope issues
-                    if (window.syncManager && window.syncManager.restoreBackup(content)) {
+                    // Force re-check of syncManager instance
+                    const manager = window.syncManager;
+                    if (!manager || typeof manager.restoreBackup !== 'function') {
+                        throw new Error("نظام المزامنة (SyncManager) لم يتم تحميله بالكامل بعد. يرجى تحديث الصفحة.");
+                    }
+
+                    if (manager.restoreBackup(content)) {
                         const msgContainer = modalOverlay.querySelector('.neuro-modal-msg');
                         if (msgContainer) {
                             msgContainer.innerHTML += '<div style="margin-top:15px; padding:10px; color:#10b981; border:1px solid #10b981; border-radius:8px;">✅ تم الحفظ محلياً.. جاري المزامنة...</div>';

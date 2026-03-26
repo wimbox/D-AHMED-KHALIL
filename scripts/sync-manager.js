@@ -900,6 +900,7 @@ class SyncManager {
 
     restoreBackup(jsonString) {
         try {
+            console.log("[SyncManager] Initiating Restore from JSON string...");
             const parsed = JSON.parse(jsonString);
             if (!parsed.patients && !parsed.clinics) {
                 console.error("SyncManager: Invalid backup structure.");
@@ -917,6 +918,7 @@ class SyncManager {
             this.recalculatePatientCounter();
             
             this.notifyDataChanged();
+            console.log("[SyncManager] Restore successful.");
             return true;
         } catch (err) {
             console.error("SyncManager: Backup Restoration Failed:", err);
