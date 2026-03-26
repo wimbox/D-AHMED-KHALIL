@@ -15,9 +15,11 @@ class SyncManager {
         // Force Reload Logic Fix
         this.data = this.loadLocal();
         this.isNewSession = !localStorage.getItem(this.DB_KEY);
-        this.isPullDone = false; // Start false to force initial check
-        this.syncQueue = []; // For granular updates
+        this.isPullDone = false; 
+        this.isMigrating = false;
+        this.syncQueue = []; 
         this.isSyncing = false;
+        this.hasDirtyData = false; // Flag to track changes during sync
 
         this.backupHandle = null; // System directory handle for Auto-Guardian
         this.isAutoBackupEnabled = false;
@@ -137,9 +139,9 @@ class SyncManager {
             }
         });
 
-        // 2. Cross-Device Sync: Initialize Firestore listener
-        // Reduced delay to 300ms to catch cloud data before any accidental local saves
-        setTimeout(() => this.startCloudObserver(), 300);
+        // 2. Cross-Device Sync: Initialize Fragmented Observer
+        // Higher delay to ensure Firebase is fully ready
+        setTimeout(() => this.startCloudObserver(), 1500);
     }
 
     notifyDataChanged() {
@@ -594,7 +596,14 @@ class SyncManager {
     saveLocal() {
         // Track the exact moment this local change occurred
         this.data.settings.lastLocalUpdate = new Date().toISOString();
-        localStorage.setItem(this.DB_KEY, JSON.stringify(this.data));
+        try {
+            localStorage.setItem(this.DB_KEY, JSON.stringify(this.data));
+        } catch (e) {
+            console.error("SyncManager: Failed to save to localStorage. Quota exceeded or invalid data.", e);
+            if (window.showNeuroToast) {
+                window.showNeuroToast("تنبيه: مساحة تخزين المتصفح ممتلئة بشدة! بعض البيانات قد لا تحفظ مؤقتاً، تأكد من اتصال الإنترنت.", "warning");
+            }
+        }
 
         // Debounce cloud sync to avoid rapid consecutive writes
         if (this.syncTimeout) clearTimeout(this.syncTimeout);
@@ -607,11 +616,14 @@ class SyncManager {
                     await this.performAutoBackup();
                 } catch (err) {
                     console.warn("Auto-Guardian: Automatic background backup failed:", err);
-                    this.isAutoBackupEnabled = false; // Disable if permission lost
+                    this.isAutoBackupEnabled = false; 
                     window.dispatchEvent(new CustomEvent('backupStatusChanged'));
                 }
             }
-        }, 500); // 0.5s debounce for faster real-time feeling
+        }, 500); 
+
+        // Mark as dirty for cloud sync
+        this.hasDirtyData = true;
     }
 
     /**
@@ -685,122 +697,202 @@ class SyncManager {
     /**
      * Real-time listener for Firestore changes.
      */
+    /**
+     * Real-time listener for Fragmented Firestore structure.
+     * This bypasses the 1MB limit by merging multiple documents.
+     */
     startCloudObserver() {
-        if (typeof db === 'undefined' || !db) {
-            console.log("Cloud Observer: Firebase/Firestore not available.");
-            return;
-        }
+        if (typeof db === 'undefined' || !db) return;
 
-        console.log("Cloud Observer: Starting real-time listener...");
-        db.collection('app_data').doc('clinic_master_data').onSnapshot((doc) => {
-            if (doc.exists) {
-                let cloudData = doc.data();
-
-                // --- ATOMIC DEEP CLEANING (Real-time Cloud Guard) ---
-                const alexId = 'clinic-default';
-                let repairedInCloud = false;
-
-                // 1. Repair Patients (Only those with NO ID)
-                (cloudData.patients || []).forEach(p => {
-                    if (!p.clinicId || p.clinicId === 'undefined') { p.clinicId = alexId; repairedInCloud = true; }
-                });
-                // 2. Repair Appointments (Only those with NO ID)
-                (cloudData.appointments || []).forEach(a => {
-                    if (!a.clinicId || a.clinicId === 'undefined') { a.clinicId = alexId; repairedInCloud = true; }
-                });
-                // 3. Repair Transactions (Only those with NO ID)
-                if (cloudData.finances?.transactions) {
-                    cloudData.finances.transactions.forEach(t => {
-                        if (!t.clinicId || t.clinicId === 'undefined') { t.clinicId = alexId; repairedInCloud = true; }
-                    });
-                }
-
-                if (repairedInCloud) {
-                    console.log("Cloud Observer: Legacy data detected in cloud stream. Sanitized in-flight.");
-                    cloudData.settings.hasFixedShubrakhitOverlap_FINAL_V3 = true;
-                }
-
-                // Compare timestamps to decide if we should update local state
-                const cloudTime = cloudData.updatedAt?.toDate?.()?.getTime() || 0;
-                const lastSyncTime = new Date(this.data.settings?.lastSync || 0).getTime();
-                const lastLocalUpdateTime = new Date(this.data.settings?.lastLocalUpdate || 0).getTime();
-
-                if (this.isNewSession || (cloudTime > lastSyncTime && cloudTime > lastLocalUpdateTime)) {
-                    if (cloudData.patients && cloudData.patients.length === 0 && this.data.patients.length > 10) {
-                        console.warn("Cloud Observer: Blocked merge of empty cloud data.");
-                    } else {
-                        console.log("Cloud Observer: Merging sanitized cloud data...");
-
-                        // VITAL PERSISTENCE FIX: Don't let background sync change our branch
-                        const currentActiveId = this.data?.settings?.activeClinicId || localStorage.getItem('neuro_active_clinic_id') || alexId;
-
-                        // --- SMART FIELD MERGE (Name Recovery Logic) ---
-                        // If local has patients without names but cloud has them, recover names
-                        if (this.data.patients && this.data.patients.length > 0) {
-                            cloudData.patients.forEach(cloudP => {
-                                const localP = this.data.patients.find(p => p.id === cloudP.id);
-                                if (localP && !localP.name && cloudP.name) {
-                                    console.log(`Cloud Observer: Recovering missing name for patient ${cloudP.id} (${cloudP.name})`);
-                                    localP.name = cloudP.name;
-                                    localP.patientCode = cloudP.patientCode; // Restore code too
-                                }
-                            });
-                        }
-
-                        this.data = cloudData;
-
-                        // Restore the locally selected branch
-                        this.data.settings.activeClinicId = currentActiveId;
-
-                        localStorage.setItem(this.DB_KEY, JSON.stringify(this.data));
-
-                        // Force Full UI refresh (Boxes + Tables)
-                        if (window.dashboardUI) {
-                            window.dashboardUI.updateStats();
-                            window.dashboardUI.renderTodayAppointments();
-                        }
-
-                        this.notifyDataChanged();
-
-                        // If it was dirty in cloud, push our clean version back immediately
-                        if (repairedInCloud) {
-                            setTimeout(() => this.triggerCloudSync(), 2000);
-                        }
-                    }
-                    this.isNewSession = false;
-                } else {
-                    // EVEN IF LOCAL IS NEWER: Still check for missing names to recover
-                    let recoveredCount = 0;
-                    cloudData.patients.forEach(cloudP => {
-                        const localP = this.data.patients.find(p => p.id === cloudP.id);
-                        if (localP && (!localP.name || localP.name === 'غير معروف') && cloudP.name) {
-                            localP.name = cloudP.name;
-                            localP.patientCode = cloudP.patientCode;
-                            recoveredCount++;
-                        }
-                    });
-
-                    if (recoveredCount > 0) {
-                        console.log(`Cloud Observer: Proactively recovered ${recoveredCount} missing names despite local being newer.`);
-                        this.saveLocal();
-                        if (window.dashboardUI) {
-                            window.dashboardUI.renderTodayAppointments();
-                            window.dashboardUI.updateStats();
-                        }
-                    }
-                    console.log("Cloud Observer: Multi-Clinic State Verified.");
-                }
-                this.isPullDone = true;
-            } else {
-                console.log("Cloud Observer: Cloud document is empty.");
-                this.isPullDone = true;
-                this.isNewSession = false;
+        console.log("SyncManager: Fragmented Observer active (Collection: clinic_fragments)");
+        
+        db.collection('clinic_fragments').onSnapshot((snapshot) => {
+            if (snapshot.empty && !this.isMigrating) {
+                console.log("Cloud Observer: Fragment collection is empty. Checking migration...");
+                this.isMigrating = true;
+                this.checkAndMigrateLegacyData().finally(() => this.isMigrating = false);
+                return;
             }
+
+            const fragments = {};
+            snapshot.forEach(doc => fragments[doc.id] = doc.data());
+
+            // Process assembly
+            this.assembleAndMergeFragments(fragments);
+            
+            this.updateSyncUI();
         }, (error) => {
             console.error("Cloud Observer error:", error);
             this.cloudStatus = 'error';
             this.updateSyncUI();
         });
+    }
+
+    async checkAndMigrateLegacyData() {
+        if (typeof db === 'undefined' || !db) return;
+
+        try {
+            console.log("Migration: Checking legacy 1MB document...");
+            const legacyDoc = await db.collection('app_data').doc('clinic_master_data').get();
+            
+            if (legacyDoc.exists) {
+                const cloudData = legacyDoc.data();
+                console.log("%c Migration: Legacy data located. Shattering into fragments...", "color: #00eaff; font-weight: bold;");
+
+                // Populate local memory first to ensure fragmented push works
+                this.data = { ...this.data, ...cloudData };
+                
+                // CRITICAL: Ensure key collections are present
+                this.data.patients = this.data.patients || [];
+                this.data.appointments = this.data.appointments || [];
+                this.data.finances = this.data.finances || { transactions: [], ledger: {} };
+                
+                this.isPullDone = true;
+                
+                // Shatter into fragments and push to cloud
+                const pushSuccess = await this.triggerCloudSync();
+                if (pushSuccess) {
+                    console.log("Migration: Successfully fragmented legacy data.");
+                    // Mark as migrated locally
+                    this.data.settings.hasMigratedToFragments = true;
+                    this.saveLocal();
+                }
+            } else {
+                console.log("Migration: No legacy data found.");
+                this.isPullDone = true;
+            }
+        } catch (err) {
+            console.error("Migration Failed:", err);
+            this.isPullDone = true;
+        }
+    }
+
+    assembleAndMergeFragments(fragments) {
+        if (!fragments || Object.keys(fragments).length === 0) {
+            this.isSyncing = false;
+            this.updateSyncUI();
+            return;
+        }
+
+        const keys = Object.keys(fragments);
+        console.log(`%c [SyncManager] Reassembling Fragments: ${keys.length} chunks. Keys: [${keys.join(', ')}]`, "color: #00eaff;");
+        
+        const metadata = fragments['metadata'];
+        if (!metadata) {
+            console.warn("[SyncManager] Missing 'metadata' fragment. Attempting generic assembly...");
+            this.isSyncing = false;
+            this.updateSyncUI();
+            // Optional: return if metadata is absolutely essential
+        }
+        if (!metadata) return;
+
+        // Defensive data retrieval
+        const incomingClinics = metadata.clinics || this.data.clinics || [];
+        const incomingUsers = metadata.users || this.data.users || [];
+
+        // Protection: Ignore empty incoming data if local is not empty
+        if (incomingClinics.length === 0 && this.data.clinics.length > 0) return;
+
+        const cloudTime = metadata.updatedAt?.toDate?.()?.getTime() || 0;
+        const lastSyncTime = new Date(this.data.settings?.lastSync || 0).getTime();
+        const lastLocalUpdateTime = new Date(this.data.settings?.lastLocalUpdate || 0).getTime();
+
+        // MERGE CRITERIA: Session Init OR Cloud is Newer
+        if (this.isNewSession || (cloudTime > lastSyncTime && cloudTime > lastLocalUpdateTime)) {
+            console.log("Cloud Observer: Reassembling Fragmented Data...");
+
+            // 1. Rebuild Patients
+            let patients = [];
+            const patientInfo = fragments['patients_info'];
+            if (patientInfo) {
+                for (let i = 0; i < patientInfo.totalChunks; i++) {
+                    const chunk = fragments[`patients_${i}`];
+                    if (chunk && chunk.data) patients.push(...chunk.data);
+                }
+            } else {
+                patients = this.data.patients;
+            }
+
+            // 2. Rebuild Appointments
+            let appointments = [];
+            const apptInfo = fragments['appointments_info'];
+            if (apptInfo) {
+                for (let i = 0; i < apptInfo.totalChunks; i++) {
+                    const chunk = fragments[`appointments_${i}`];
+                    if (chunk && chunk.data) appointments.push(...chunk.data);
+                }
+            } else {
+                appointments = this.data.appointments;
+            }
+
+            // 3. Rebuild patientDocs Fragments
+            let patientDocs = {};
+            const docInfo = fragments['patientdocs_info'];
+            if (docInfo) {
+                for (let i = 0; i < docInfo.totalChunks; i++) {
+                    const chunk = fragments[`patientdocs_${i}`];
+                    if (chunk && chunk.data) {
+                        Object.assign(patientDocs, chunk.data);
+                    }
+                }
+            } else {
+                patientDocs = metadata.patientDocs || this.data.patientDocs || {};
+            }
+
+            // 4. Simple Fragments
+            const finances = fragments['finances'] || this.data.finances;
+            const auditLog = fragments['audit_log']?.data || this.data.auditLog;
+
+            // 5. ATOMIC DEEP CLEANING (Real-time Cloud Guard)
+            const alexId = 'clinic-default';
+            (patients || []).forEach(p => { if (!p.clinicId || p.clinicId === 'undefined') p.clinicId = alexId; });
+            (appointments || []).forEach(a => { if (!a.clinicId || a.clinicId === 'undefined') a.clinicId = alexId; });
+            if (finances.transactions) {
+                finances.transactions.forEach(t => { if (!t.clinicId || t.clinicId === 'undefined') t.clinicId = alexId; });
+            }
+
+            // 6. Update local memory and disk
+            const currentActiveId = metadata.settings?.activeClinicId || this.data?.settings?.activeClinicId || localStorage.getItem('neuro_active_clinic_id');
+
+            this.data = {
+                ...this.data,
+                clinics: incomingClinics.length > 0 ? incomingClinics : this.data.clinics,
+                users: incomingUsers.length > 0 ? incomingUsers : this.data.users,
+                settings: metadata.settings,
+                patients: patients.length > 0 ? patients : this.data.patients,
+                appointments: appointments.length > 0 ? appointments : this.data.appointments,
+                finances,
+                auditLog,
+                patientDocs: Object.keys(patientDocs).length > 0 ? patientDocs : this.data.patientDocs
+            };
+
+            if (currentActiveId) this.data.settings.activeClinicId = currentActiveId;
+            
+            this.data.settings.lastSync = new Date().toISOString();
+            localStorage.setItem(this.DB_KEY, JSON.stringify(this.data));
+            
+            this.cloudStatus = 'online';
+            
+            // UI Update with debouncing to avoid main thread blocking
+            if (this.uiUpdateTimeout) clearTimeout(this.uiUpdateTimeout);
+            this.uiUpdateTimeout = setTimeout(() => {
+                this.notifyDataChanged();
+                this.updateSyncUI();
+            }, 100);
+
+            // REFRESH TRIGGER
+            if (this.isNewSession) {
+                this.isNewSession = false;
+                console.log("%c First session sync successful. Refreshing application state...", "color: #00eaff; font-weight: bold;");
+                setTimeout(() => window.location.reload(), 1000);
+            }
+            
+            if (window.dashboardUI) {
+                window.dashboardUI.updateStats();
+                window.dashboardUI.renderTodayAppointments();
+            }
+        }
+        this.isPullDone = true;
     }
 
     // --- Patient Operations (CRUD) ---
@@ -975,8 +1067,18 @@ class SyncManager {
 
     // --- Clinic Management ---
     getClinics() {
-        // Self-Healing: Ensure Shubrakhit exists whenever clinics are accessed
-        if (this.data.clinics && !this.data.clinics.find(c => c.id === 'clinic-shubrakhit' || c.name === 'شبراخيت')) {
+        // Self-Healing: Ensure default clinic exists if list is empty
+        if (!this.data.clinics || this.data.clinics.length === 0) {
+            this.data.clinics = [{
+                id: 'clinic-default',
+                name: 'الاسكندرية',
+                isActive: true,
+                createdAt: new Date().toISOString(),
+                settings: { currency: 'EGP', timezone: 'Africa/Cairo', workingHours: { start: '09:00', end: '21:00' } }
+            }];
+        }
+        // Self-Healing: Ensure Shubrakhit exists
+        if (!this.data.clinics.find(c => c.id === 'clinic-shubrakhit' || c.name === 'شبراخيت')) {
             this.data.clinics.push({
                 id: 'clinic-shubrakhit',
                 name: 'شبراخيت',
@@ -984,9 +1086,9 @@ class SyncManager {
                 createdAt: new Date().toISOString(),
                 settings: { currency: 'EGP', timezone: 'Africa/Cairo', workingHours: { start: '09:00', end: '21:00' } }
             });
-            this.saveLocal(); // Force Save immediately
+            this.saveLocal();
         }
-        return this.data.clinics || [];
+        return this.data.clinics;
     }
 
     getActiveClinic() {
@@ -1112,105 +1214,123 @@ class SyncManager {
     }
 
     // --- Cloud Sync ---
+    // --- Cloud Sync: Fragmented Logic ---
     async triggerCloudSync() {
-        if (typeof db === 'undefined' || !db) {
-            console.log("Cloud sync: Firebase not initialized or configured.");
-            this.cloudStatus = 'offline';
-            this.updateSyncUI();
+        if (typeof db === 'undefined' || !db) return false;
+        if (!this.isPullDone) return false;
+        if (this.isSyncing) {
+            this.hasDirtyData = true; // Ensure we sync again after finish
             return false;
         }
 
-        const startTime = performance.now();
-        const docId = 'clinic_master_data';
-
-        // --- Critical Safety Check ---
-        if (!this.isPullDone) {
-            console.warn("Cloud sync: Push blocked. Still waiting for initial cloud pull verification.");
-            return false;
-        }
-
-        // --- EMPTY DATA GUARD: Never push empty data if cloud has existing data ---
-        if (this.data.patients.length === 0) {
-            console.warn("Cloud sync: Empty local dataset detected. Checking cloud status before push...");
-        }
-
-        // --- FINAL INTEGRITY GUARD (Pre-push check) ---
-        // If we are pushing data that is significantly smaller than what's in the cloud, 
-        // we must block this to prevent accidental data wipes.
-        const cloudDoc = await db.collection('app_data').doc(docId).get();
-        if (cloudDoc.exists) {
-            const cloudPatients = cloudDoc.data().patients || [];
-
-            // 1. DATA LOSS PREVENTION: If local has way fewer patients than cloud (and cloud is not empty)
-            if (this.data.patients.length < cloudPatients.length * 0.5 && cloudPatients.length > 5) {
-                console.error("Cloud sync: PUSH BLOCKED. Local data is significantly smaller than Cloud. Protective lock engaged.");
-                if (window.showNeuroToast) window.showNeuroToast("خطأ: تم حظر المزامنة لأن البيانات المحلية ناقصة بشكل كبير. يرجى التحديث.", "error");
-                this.isPullDone = false; // Force re-pull
-                this.cloudStatus = 'error'; // Update UI
-                this.updateSyncUI();
-                return false;
-            }
-
-            // 2. NAME DEGRADATION PREVENTION
-            const hasDegradedData = this.data.patients.some(p => {
-                const cp = cloudPatients.find(c => c.id === p.id);
-                return cp && cp.name && (!p.name || p.name === 'غير معروف');
-            });
-
-            if (hasDegradedData) {
-                console.error("Cloud sync: PUSH BLOCKED. Local names are missing while Cloud has them.");
-                this.isPullDone = false; // Force re-pull
-                this.cloudStatus = 'error'; // Update UI
-                this.updateSyncUI();
-                return false;
-            }
-        }
-
+        this.isSyncing = true;
+        this.hasDirtyData = false; // Reset flag as we are starting a sync
         this.cloudStatus = 'syncing';
         this.updateSyncUI();
 
+        const startTime = Date.now();
+        console.log("%c [SyncManager] Cloud sync: Executable Fragmented Batch started...", "color: #3b82f6; font-weight: bold;");
+
         try {
-            console.log("Cloud sync: Syncing data to Firestore...");
+            const batch = db.batch();
+            const updatedAt = firebase.firestore.FieldValue.serverTimestamp();
+            
+            // Clean data for sync (removes possible base64 bloat)
+            const cleanData = this.getCleanedLocalData();
 
-            // Update lastSync timestamp locally before uploading
-            this.data.settings.lastSync = new Date().toISOString();
+            // 1. Metadata Fragment (Essential metadata only)
+            const metadata = {
+                clinics: cleanData.clinics,
+                users: cleanData.users,
+                settings: cleanData.settings,
+                updatedAt: updatedAt
+            };
+            batch.set(db.collection('clinic_fragments').doc('metadata'), metadata);
 
-            // CLONE data and clean it for Firestore (no undefined values)
-            const cleanData = JSON.parse(JSON.stringify(this.data));
-
-            await db.collection('app_data').doc(docId).set({
-                ...cleanData,
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            // 1.5 PatientDocs Fragments (Object logic)
+            const docItems = Object.entries(cleanData.patientDocs || {});
+            const docChunks = [];
+            for (let i = 0; i < docItems.length; i += 50) {
+                const chunk = Object.fromEntries(docItems.slice(i, i + 50));
+                docChunks.push(chunk);
+            }
+            docChunks.forEach((chunk, index) => {
+                batch.set(db.collection('clinic_fragments').doc(`patientdocs_${index}`), {
+                    data: chunk,
+                    updatedAt: updatedAt
+                });
+            });
+            batch.set(db.collection('clinic_fragments').doc('patientdocs_info'), {
+                totalChunks: docChunks.length,
+                updatedAt: updatedAt
             });
 
-            // Very important: Update local lastSync to current time AFTER set
+            // 2. Patient Fragments (Chunked by 250 - Optimized balance)
+            const patientChunks = this.chunkArray(cleanData.patients, 250);
+            patientChunks.forEach((chunk, index) => {
+                batch.set(db.collection('clinic_fragments').doc(`patients_${index}`), {
+                    data: chunk,
+                    updatedAt: updatedAt
+                });
+            });
+            batch.set(db.collection('clinic_fragments').doc('patients_info'), {
+                totalChunks: patientChunks.length,
+                totalPatients: cleanData.patients.length,
+                updatedAt: updatedAt
+            });
+
+            // 3. Appointment Fragments (Chunked by 300 - Safety first)
+            const apptChunks = this.chunkArray(cleanData.appointments, 300);
+            apptChunks.forEach((chunk, index) => {
+                batch.set(db.collection('clinic_fragments').doc(`appointments_${index}`), {
+                    data: chunk,
+                    updatedAt: updatedAt
+                });
+            });
+            batch.set(db.collection('clinic_fragments').doc('appointments_info'), {
+                totalChunks: apptChunks.length,
+                updatedAt: updatedAt
+            });
+
+            // 4. Simple Fragments
+            batch.set(db.collection('clinic_fragments').doc('finances'), {
+                ...cleanData.finances,
+                updatedAt: updatedAt
+            });
+
+            // 5. Pruned Audit Log (Last 500)
+            batch.set(db.collection('clinic_fragments').doc('audit_log'), {
+                data: cleanData.auditLog.slice(0, 500),
+                updatedAt: updatedAt
+            });
+
+            // COMMIT with timeout safety
+            await Promise.race([
+                batch.commit(),
+                new Promise((_, reject) => setTimeout(() => reject(new Error("Firebase batch commit timeout")), 30000))
+            ]);
+            
+            // Success
             this.data.settings.lastSync = new Date().toISOString();
             localStorage.setItem(this.DB_KEY, JSON.stringify(this.data));
-
-            this.lastLatency = Math.round(performance.now() - startTime);
+            
             this.cloudStatus = 'online';
-            console.log(`Cloud sync: Success (${this.lastLatency}ms).`);
-            this.updateSyncUI();
+            console.log(`%c [SyncManager] Cloud sync: Fragmented batch success (took ${Date.now() - startTime}ms).`, "color: #10b981; font-weight: bold;");
             return true;
         } catch (error) {
+            console.error("[SyncManager] Fragmented Cloud Sync Failed:", error);
             this.cloudStatus = 'error';
-            console.error("Cloud sync failed:", error);
-
-            let errorMsg = "فشل في مزامنة البيانات مع السحابة.";
-            if (error.code === 'permission-denied') {
-                errorMsg = "خطأ في الصلاحيات (Permission Denied): تأكد من إعدادات Firebase.";
-            } else if (error.code === 'failed-precondition') {
-                errorMsg = "خطأ: حجم البيانات كبير جداً أو تحتاج لفهرسة في Firebase.";
-            } else if (error.message.includes('offline')) {
-                errorMsg = "أنت غير متصل بالإنترنت حالياً. سيتم الرفع تلقائياً عند عودة الاتصال.";
-            }
-
-            // Report the error to UI
-            const event = new CustomEvent('syncError', { detail: { message: errorMsg, raw: error } });
-            window.dispatchEvent(event);
-
-            this.updateSyncUI();
             return false;
+        } finally {
+            this.isSyncing = false;
+            this.updateSyncUI();
+
+            // Bridge Fix: If data became dirty while we were syncing, schedule a follow-up
+            if (this.hasDirtyData) {
+                console.log("%c [SyncManager] Pending changes detected during sync. Scheduling follow-up...", "color: #f59e0b; font-weight: bold;");
+                if (this.syncTimeout) clearTimeout(this.syncTimeout);
+                this.syncTimeout = setTimeout(() => this.triggerCloudSync(), 4000); 
+            }
         }
     }
 
@@ -1226,77 +1346,66 @@ class SyncManager {
     }
 
     /**
-     * Downloads and merges data from cloud.
-     * Caution: This currently overwrites local data.
+     * Legacy Cloud Pull: Now used for Fragmented Recovery.
      */
     async pullFromCloud() {
         if (typeof db === 'undefined' || !db) return false;
+        if (this.isSyncing) return false;
+        
+        this.isSyncing = true;
+        this.cloudStatus = 'syncing';
+        this.updateSyncUI();
 
         try {
-            this.cloudStatus = 'syncing';
-            this.updateSyncUI();
+            console.log("%c [SyncManager] Manual Cloud Pull: Scanning clinic_fragments...", "color: #3b82f6; font-weight: bold;");
+            // Check fragments collection first
+            const frags = await db.collection('clinic_fragments').get();
+            console.log(`[SyncManager] Query complete. Found ${frags.size} fragment documents.`);
 
-            const doc = await db.collection('app_data').doc('clinic_master_data').get();
-            if (doc.exists) {
-                let cloudData = doc.data();
-                if (cloudData.patients) {
-                    // --- ATOMIC DEEP CLEANING (Cloud-to-Local Guard) ---
-                    const alexId = 'clinic-default';
-
-                    // 1. Repair Patients from Cloud (Only those with NO ID)
-                    (cloudData.patients || []).forEach(p => {
-                        if (!p.clinicId || p.clinicId === 'undefined') p.clinicId = alexId;
-                    });
-                    // 2. Repair Appointments from Cloud (Only those with NO ID)
-                    (cloudData.appointments || []).forEach(a => {
-                        if (!a.clinicId || a.clinicId === 'undefined') a.clinicId = alexId;
-                    });
-                    // 3. Repair Transactions from Cloud (Only those with NO ID)
-                    if (cloudData.finances?.transactions) {
-                        cloudData.finances.transactions.forEach(t => {
-                            if (!t.clinicId || t.clinicId === 'undefined') t.clinicId = alexId;
-                        });
-                    }
-
-                    // Conversion for consistency
-                    if (cloudData.updatedAt?.toDate) {
-                        cloudData.settings.lastSync = cloudData.updatedAt.toDate().toISOString();
-                    }
-
-                    // Record that cleanup is done for this session
-                    cloudData.settings.hasFixedShubrakhitOverlap_FINAL_V3 = true;
-
-                    // --- VITAL PERSISTENCE FIX ---
-                    // Save the current locally selected clinic before overwriting with cloud data
-                    const currentActiveId = this.data?.settings?.activeClinicId || localStorage.getItem('neuro_active_clinic_id') || alexId;
-
-                    this.data = cloudData;
-
-                    // RE-APPLY LOCALLY SELECTED CLINIC (Never let cloud change our branch)
-                    this.data.settings.activeClinicId = currentActiveId;
-
-                    localStorage.setItem(this.DB_KEY, JSON.stringify(this.data));
-
-                    this.isPullDone = true;
-                    console.log("Cloud pull: Applied and Sanitized successfully.");
-
-                    // Force Stats Refresh in Dashboard if active
-                    if (window.dashboardUI) window.dashboardUI.updateStats();
-
-                    this.notifyDataChanged();
-
-                    // TRIPLE SECURITY: Immediately push the cleaned version back to cloud
-                    setTimeout(() => this.triggerCloudSync(), 1000);
-
-                    return true;
-                }
+            if (!frags.empty) {
+                const fragmentMap = {};
+                frags.forEach(doc => fragmentMap[doc.id] = doc.data());
+                this.assembleAndMergeFragments(fragmentMap);
+                return true;
+            } else {
+                // Try legacy migration
+                await this.checkAndMigrateLegacyData();
+                return true;
             }
-        } catch (error) {
-            console.error("Cloud pull failed:", error);
+        } catch (err) {
+            console.error("[SyncManager] Pull Cloud Failed:", err);
             this.cloudStatus = 'error';
+            return false;
+        } finally {
+            this.isSyncing = false;
+            this.updateSyncUI();
         }
-        this.updateSyncUI();
-        return false;
+    }
+
+    // --- Internal Helpers for Fragmented Sync ---
+    chunkArray(array, size) {
+        if (!array) return [];
+        const result = [];
+        for (let i = 0; i < array.length; i += size) {
+            result.push(array.slice(i, i + size));
+        }
+        return result;
+    }
+
+    getCleanedLocalData() {
+        const clean = JSON.parse(JSON.stringify(this.data));
+        // Remove Base64 bloat from documents metadata
+        if (clean.patientDocs) {
+            Object.keys(clean.patientDocs).forEach(pId => {
+                clean.patientDocs[pId].forEach(doc => {
+                    if (doc.fileData && doc.fileData.length > 1000) {
+                        console.warn(`Cleaning base64 bloat from patient ${pId}, doc ${doc.id}`);
+                        doc.fileData = null;
+                    }
+                });
+            });
+        }
+        return clean;
     }
 }
 
