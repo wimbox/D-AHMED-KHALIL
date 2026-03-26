@@ -947,17 +947,22 @@ class SyncManager {
     exportPatientsCSV() {
         if (!this.data.patients || this.data.patients.length === 0) return null;
         
-        const header = ["كود المريض", "الاسم", "السن", "الهاتف", "آخر زيارة"];
-        const rows = this.data.patients.map(p => [
-            p.patientCode || '---',
-            p.name || '---',
-            p.age || '---',
-            p.phone || '---',
-            p.lastUpdated ? new Date(p.lastUpdated).toLocaleDateString('ar-EG') : '---'
-        ]);
+        // Use semicolon (;) as it works better with Arabic/European Excel versions
+        const header = ["كود المريض", "الاسم", "السن", "الهاتف", "آخر زيارة"].map(h => `"${h}"`).join(';');
+        
+        const rows = this.data.patients.map(p => {
+            const dataRow = [
+                p.patientCode || '---',
+                p.name || '---',
+                p.age || '---',
+                p.phone || '---',
+                p.lastUpdated ? new Date(p.lastUpdated).toLocaleDateString('ar-EG') : '---'
+            ];
+            return dataRow.map(v => `"${v}"`).join(';');
+        });
 
         // Prepend UTF-8 BOM for Excel to recognize Arabic characters correctly
-        const csvContent = [header.join(','), ...rows.map(r => r.join(','))].join('\n');
+        const csvContent = [header, ...rows].join('\n');
         return '\uFEFF' + csvContent;
     }
 
