@@ -961,9 +961,9 @@ class SyncManager {
             return dataRow.map(v => `"${v}"`).join(';');
         });
 
-        // Prepend UTF-8 BOM for Excel to recognize Arabic characters correctly
+        // Prepend UTF-8 BOM AND 'sep=;' hint for Excel to split columns correctly
         const csvContent = [header, ...rows].join('\n');
-        return '\uFEFF' + csvContent;
+        return '\uFEFF' + 'sep=;' + '\n' + csvContent;
     }
 
     isBackupOverdue() {
