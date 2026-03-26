@@ -948,27 +948,18 @@ class SyncManager {
         if (!this.data.patients || this.data.patients.length === 0) return null;
         
         const header = ["كود المريض", "الاسم", "السن", "الهاتف", "آخر زيارة"];
-        let tableRows = `<tr>${header.map(h => `<th style="background-color:#00eaff">${h}</th>`).join('')}</tr>`;
-
-        this.data.patients.forEach(p => {
-            tableRows += `
-                <tr>
-                    <td>${p.patientCode || ''}</td>
-                    <td>${p.name || ''}</td>
-                    <td>${p.age || ''}</td>
-                    <td>${p.phone || ''}</td>
-                    <td>${p.lastUpdated ? new Date(p.lastUpdated).toLocaleDateString('ar-EG') : ''}</td>
-                </tr>
-            `;
+        const rows = this.data.patients.map(p => {
+            return [
+                `"${p.patientCode || ''}"`,
+                `"${p.name || ''}"`,
+                `"${p.age || ''}"`,
+                `"${p.phone || ''}"`,
+                `"${p.lastUpdated ? new Date(p.lastUpdated).toLocaleDateString('ar-EG') : ''}"`
+            ].join(',');
         });
 
-        return `
-            <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel">
-            <head><meta charset="utf-8"><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet>
-            <x:Name>Patients</x:Name><x:WorksheetOptions><x:DisplayRightToLeft/></x:WorksheetOptions>
-            </x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml></head>
-            <body><table border="1">${tableRows}</table></body></html>
-        `;
+        const csvContent = [header.map(h => `"${h}"`).join(','), ...rows].join('\n');
+        return '\uFEFF' + csvContent;
     }
 
     isBackupOverdue() {

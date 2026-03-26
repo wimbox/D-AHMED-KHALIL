@@ -2098,11 +2098,11 @@ class DashboardUI {
             }
         }
 
-        const blob = new Blob([csv], { type: 'application/vnd.ms-excel' });
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `patients_list_${new Date().toISOString().split('T')[0]}.xls`;
+        a.download = `patients_list_${new Date().toISOString().split('T')[0]}.csv`;
         a.click();
         URL.revokeObjectURL(url);
         window.soundManager?.playSuccess();
