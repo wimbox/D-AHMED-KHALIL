@@ -955,10 +955,10 @@ class SyncManager {
                 `"${p.age || ''}"`,
                 `"${p.phone || ''}"`,
                 `"${p.lastUpdated ? new Date(p.lastUpdated).toLocaleDateString('ar-EG') : ''}"`
-            ].join(',');
+            ].join(';');
         });
 
-        const csvContent = [header.map(h => `"${h}"`).join(','), ...rows].join('\n');
+        const csvContent = [header.map(h => `"${h}"`).join(';'), ...rows].join('\n');
         return '\uFEFF' + csvContent;
     }
 
