@@ -23,5 +23,6 @@ if (typeof firebase !== 'undefined') {
     window.storage = firebase.storage();
     window.auth = firebase.auth();
 } else {
-    console.warn("Firebase SDK not loaded. Work in offline mode.");
+    console.error("CRITICAL: Firebase SDK (compat) not loaded in this environment. Firestore/Sync will be disabled.");
+    window.db = null; // Explicit null to trigger SyncManager offline logic
 }

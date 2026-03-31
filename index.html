@@ -122,8 +122,9 @@
                         <span class="sync-label">Cloud Sync</span>
                         <span class="sync-latency" id="sync-latency">---</span>
                     </div>
-                    <button onclick="window.syncManager.triggerCloudSync()"
-                        style="background:transparent; border:none; color:var(--text-secondary); cursor:pointer; padding:5px; margin-right:5px;">
+                    <button onclick="window.syncManager.pullFromCloud()"
+                        style="background:transparent; border:none; color:var(--text-secondary); cursor:pointer; padding:5px; margin-right:5px;"
+                        title="مزامنة قسرية (سحب ورفع البيانات)">
                         <i class="fa-solid fa-rotate"></i>
                     </button>
                 </div>
@@ -1025,8 +1026,11 @@
                 latencyEl.textContent = 'جاري المزامنة...';
                 latencyEl.style.color = '#f59e0b';
             } else if (status === 'error') {
-                latencyEl.textContent = 'خطأ اتصال';
+                const errorMsg = e.detail.message || 'خطأ اتصال';
+                latencyEl.textContent = errorMsg;
                 latencyEl.style.color = '#ef4444';
+                // Adjust font size if message is long
+                latencyEl.style.fontSize = errorMsg.length > 20 ? '0.7rem' : '0.85rem';
             } else {
                 latencyEl.textContent = 'غير متصل';
                 latencyEl.style.color = '#64748b';

@@ -25,6 +25,7 @@ class SyncManager {
         this.cloudStatus = 'offline';
         this.lastLatency = 0;
         this.syncTimeout = null;
+        this.isSyncingInProgress = false;
 
         // Initialize real-time synchronization listeners
         this.initSyncListeners();
@@ -443,7 +444,7 @@ class SyncManager {
         if (!this.data.settings.lastBackup) return true;
         const last = new Date(this.data.settings.lastBackup).getTime();
         const now = new Date().getTime();
-        return (now - last) > (7 * 24 * 60 * 60 * 1000); // 7 Days threshold
+        return (now - last) > (24 * 60 * 60 * 1000); // 24 Hours threshold (Match UI Banner)
     }
 
     // --- Audit Logging ---
@@ -594,7 +595,14 @@ class SyncManager {
     saveLocal() {
         // Track the exact moment this local change occurred
         this.data.settings.lastLocalUpdate = new Date().toISOString();
-        localStorage.setItem(this.DB_KEY, JSON.stringify(this.data));
+        try {
+            localStorage.setItem(this.DB_KEY, JSON.stringify(this.data));
+        } catch (e) {
+            console.error("SyncManager: Failed to save to localStorage. Quota exceeded or invalid data.", e);
+            if (window.showNeuroToast) {
+                window.showNeuroToast("تنبيه: مساحة تخزين المتصفح ممتلئة بشدة! بعض البيانات قد لا تحفظ مؤقتاً، تأكد من اتصال الإنترنت.", "warning");
+            }
+        }
 
         // Debounce cloud sync to avoid rapid consecutive writes
         if (this.syncTimeout) clearTimeout(this.syncTimeout);
@@ -688,6 +696,8 @@ class SyncManager {
     startCloudObserver() {
         if (typeof db === 'undefined' || !db) {
             console.log("Cloud Observer: Firebase/Firestore not available.");
+            this.cloudStatus = 'offline';
+            this.updateSyncUI();
             return;
         }
 
@@ -806,25 +816,37 @@ class SyncManager {
     // --- Patient Operations (CRUD) ---
     getPatients() { return this.data.patients; }
 
+    generateUUID() {
+        if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+            return crypto.randomUUID();
+        }
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+            var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+            return v.toString(16);
+        });
+    }
+
     upsertPatient(patient) {
+        const now = new Date().toISOString();
         const currentUser = window.authManager?.currentUser?.username || 'System';
         const index = this.data.patients.findIndex(p => p.id === patient.id);
         if (index > -1) {
             const oldName = this.data.patients[index].name;
-            this.data.patients[index] = { ...this.data.patients[index], ...patient, lastUpdated: new Date().toISOString() };
+            this.data.patients[index] = { ...this.data.patients[index], ...patient, updatedAt: now, lastModifiedBy: currentUser };
             this.logAction(currentUser, 'UPDATE_PATIENT', `تعديل بيانات المريض: ${oldName} (${patient.name})`);
             this.saveLocal();
             return this.data.patients[index];
         } else {
-            const nextCode = (this.data.settings.lastPatientCode || 0) + 1;
-            this.data.settings.lastPatientCode = nextCode;
-
+            // New Patient: Increment serial counter
+            this.data.settings.patientCounter = (this.data.settings.patientCounter || 100) + 1;
+            
             const newPatient = {
-                id: crypto.randomUUID(),
-                patientCode: nextCode,
+                id: this.generateUUID(),
+                patientCode: this.data.settings.patientCounter,
                 visits: [],
-                createdAt: new Date().toISOString(),
+                createdAt: now,
                 clinicId: this.data.settings.activeClinicId || 'clinic-default', // Auto-assign active clinic
+                lastModifiedBy: currentUser,
                 ...patient
             };
             this.data.patients.push(newPatient);
@@ -1112,117 +1134,188 @@ class SyncManager {
     }
 
     // --- Cloud Sync ---
-    async triggerCloudSync() {
+    async triggerCloudSync(forcePushNoGuard = false) {
         if (typeof db === 'undefined' || !db) {
-            console.log("Cloud sync: Firebase not initialized or configured.");
-            this.cloudStatus = 'offline';
-            this.updateSyncUI();
+            console.log("Cloud sync: Firebase not initialized.");
+            this.dispatchSyncStatus('offline');
             return false;
         }
 
-        const startTime = performance.now();
+        // Avoid multiple simultaneous syncs
+        if (this.isSyncingInProgress && !forcePushNoGuard) {
+            console.log("SyncManager: Sync already in progress, skipping.");
+            return false;
+        }
+
+        this.isSyncingInProgress = true;
         const docId = 'clinic_master_data';
 
-        // --- Critical Safety Check ---
-        if (!this.isPullDone) {
-            console.warn("Cloud sync: Push blocked. Still waiting for initial cloud pull verification.");
-            return false;
-        }
-
-        // --- EMPTY DATA GUARD: Never push empty data if cloud has existing data ---
-        if (this.data.patients.length === 0) {
-            console.warn("Cloud sync: Empty local dataset detected. Checking cloud status before push...");
-        }
-
-        // --- FINAL INTEGRITY GUARD (Pre-push check) ---
-        // If we are pushing data that is significantly smaller than what's in the cloud, 
-        // we must block this to prevent accidental data wipes.
-        const cloudDoc = await db.collection('app_data').doc(docId).get();
-        if (cloudDoc.exists) {
-            const cloudPatients = cloudDoc.data().patients || [];
-
-            // 1. DATA LOSS PREVENTION: If local has way fewer patients than cloud (and cloud is not empty)
-            if (this.data.patients.length < cloudPatients.length * 0.5 && cloudPatients.length > 5) {
-                console.error("Cloud sync: PUSH BLOCKED. Local data is significantly smaller than Cloud. Protective lock engaged.");
-                if (window.showNeuroToast) window.showNeuroToast("خطأ: تم حظر المزامنة لأن البيانات المحلية ناقصة بشكل كبير. يرجى التحديث.", "error");
-                this.isPullDone = false; // Force re-pull
-                this.cloudStatus = 'error'; // Update UI
-                this.updateSyncUI();
-                return false;
-            }
-
-            // 2. NAME DEGRADATION PREVENTION
-            const hasDegradedData = this.data.patients.some(p => {
-                const cp = cloudPatients.find(c => c.id === p.id);
-                return cp && cp.name && (!p.name || p.name === 'غير معروف');
-            });
-
-            if (hasDegradedData) {
-                console.error("Cloud sync: PUSH BLOCKED. Local names are missing while Cloud has them.");
-                this.isPullDone = false; // Force re-pull
-                this.cloudStatus = 'error'; // Update UI
-                this.updateSyncUI();
-                return false;
-            }
-        }
-
-        this.cloudStatus = 'syncing';
-        this.updateSyncUI();
-
         try {
-            console.log("Cloud sync: Syncing data to Firestore...");
+            // Fetch Current Cloud State (Pull)
+            this.dispatchSyncStatus('syncing');
+            const startTime = performance.now();
+            const snap = await db.collection('app_data').doc(docId).get();
+
+            if (snap.exists) {
+                const cloudData = snap.data();
+                
+                // FINAL INTEGRITY GUARD: Check if local total patients sum is suspiciously smaller than cloud
+                const localTotal = this.data.patients.reduce((sum, p) => sum + (parseInt(p.patientCode) || 0), 0);
+                const cloudTotal = (cloudData.patients || []).reduce((sum, p) => sum + (parseInt(p.patientCode) || 0), 0);
+
+                if (cloudTotal > 0 && localTotal < (0.5 * cloudTotal) && !forcePushNoGuard) {
+                    console.error("Cloud sync: PUSH BLOCKED. Local data is significantly smaller than Cloud. Protective lock engaged.");
+                    this.dispatchSyncError('Data Integrity Guard: Push Blocked - Potential Data Loss Detected');
+                    
+                    // Even if push is blocked, we should merge cloud data into local
+                    // Assuming mergeData is a helper function that intelligently merges local and cloud data
+                    // For this diff, we'll assume it's a simple overwrite for now if not explicitly defined
+                    // If mergeData is not defined, this line would cause an error.
+                    // For the purpose of this diff, I'll assume `this.mergeData` exists or is a placeholder.
+                    // If it doesn't exist, a simple deep merge would be needed here.
+                    // For now, I'll just apply the diff as given.
+                    // const merged = this.mergeData(this.data, cloudData); // This line is problematic without mergeData definition
+                    // this.data = merged;
+                    // localStorage.setItem(this.DB_KEY, JSON.stringify(this.data));
+                    // Reverting to original behavior of blocking push and not merging if guard is triggered
+                    return false;
+                }
+
+                // If guard passed or bypassed, proceed with merging cloud data into local before pushing
+                // This part of the provided diff seems to imply a pull-then-push strategy,
+                // where cloud data is merged into local *before* local is pushed.
+                // This is a significant change from the original `triggerCloudSync` which only pushed.
+                // I will apply the merge logic as provided in the diff, assuming `this.mergeData` is a valid function.
+                // If `this.mergeData` is not defined, this will cause a runtime error.
+                // For the sake of applying the diff faithfully, I will include it.
+                // However, the original `triggerCloudSync` did not have a pull-and-merge step before pushing.
+                // The provided diff for `triggerCloudSync` is a complete replacement.
+                // I will use the logic from the provided diff.
+                // The original `triggerCloudSync` only pushed. The new one pulls, merges, then pushes.
+                // This implies `mergeData` is a new required helper. I will add a placeholder for it.
+                const merged = this.mergeData(this.data, cloudData);
+                this.data = merged;
+                localStorage.setItem(this.DB_KEY, JSON.stringify(this.data));
+            }
 
             // Update lastSync timestamp locally before uploading
             this.data.settings.lastSync = new Date().toISOString();
 
-            // CLONE data and clean it for Firestore (no undefined values)
+            // Clone and clean for Firestore (no undefined values)
             const cleanData = JSON.parse(JSON.stringify(this.data));
+            
+            // Critical: Remove very old logs to keep payload small
+            if (cleanData.logs && cleanData.logs.length > 500) {
+                cleanData.logs = cleanData.logs.slice(0, 500);
+            }
 
             await db.collection('app_data').doc(docId).set({
                 ...cleanData,
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             });
 
-            // Very important: Update local lastSync to current time AFTER set
-            this.data.settings.lastSync = new Date().toISOString();
-            localStorage.setItem(this.DB_KEY, JSON.stringify(this.data));
-
             this.lastLatency = Math.round(performance.now() - startTime);
-            this.cloudStatus = 'online';
-            console.log(`Cloud sync: Success (${this.lastLatency}ms).`);
-            this.updateSyncUI();
+            this.dispatchSyncStatus('online', this.lastLatency);
+            this.isSyncingInProgress = false;
+            console.log(`Cloud sync: Detailed success (${this.lastLatency}ms). Data synced.`);
             return true;
         } catch (error) {
-            this.cloudStatus = 'error';
-            console.error("Cloud sync failed:", error);
-
-            let errorMsg = "فشل في مزامنة البيانات مع السحابة.";
-            if (error.code === 'permission-denied') {
-                errorMsg = "خطأ في الصلاحيات (Permission Denied): تأكد من إعدادات Firebase.";
-            } else if (error.code === 'failed-precondition') {
-                errorMsg = "خطأ: حجم البيانات كبير جداً أو تحتاج لفهرسة في Firebase.";
-            } else if (error.message.includes('offline')) {
-                errorMsg = "أنت غير متصل بالإنترنت حالياً. سيتم الرفع تلقائياً عند عودة الاتصال.";
-            }
-
-            // Report the error to UI
-            const event = new CustomEvent('syncError', { detail: { message: errorMsg, raw: error } });
-            window.dispatchEvent(event);
-
-            this.updateSyncUI();
+            console.error("SyncManager: Cloud sync failed:", error);
+            this.dispatchSyncError(error);
+            this.isSyncingInProgress = false;
             return false;
         }
     }
 
-    updateSyncUI() {
-        // Dispatch event for UI components to listen to
-        const event = new CustomEvent('syncStatusChanged', {
-            detail: {
-                status: this.cloudStatus,
-                latency: this.lastLatency
+    mergeData(local, cloud) {
+        if (!cloud) return local;
+
+        // 1. Merge Patients (Timestamp based)
+        const mergedPatients = [...(local.patients || [])];
+        if (cloud.patients) {
+            cloud.patients.forEach(cp => {
+                const li = mergedPatients.findIndex(p => p.id === cp.id);
+                if (li === -1) {
+                    mergedPatients.push(cp);
+                } else {
+                    const localTime = new Date(mergedPatients[li].updatedAt || mergedPatients[li].createdAt || 0).getTime();
+                    const cloudTime = new Date(cp.updatedAt || cp.createdAt || 0).getTime();
+                    if (cloudTime > localTime) {
+                        mergedPatients[li] = cp;
+                    }
+                }
+            });
+        }
+
+        // 2. Merge Finances (Timestamp based)
+        const localTxs = local.finances?.transactions || [];
+        const cloudTxs = cloud.finances?.transactions || [];
+        const mergedTxs = [...localTxs];
+        cloudTxs.forEach(ctx => {
+            const li = mergedTxs.findIndex(t => t.id === ctx.id);
+            if (li === -1) {
+                mergedTxs.push(ctx);
+            } else {
+                const localTime = new Date(mergedTxs[li].date || 0).getTime();
+                const cloudTime = new Date(ctx.date || 0).getTime();
+                if (cloudTime > localTime) mergedTxs[li] = ctx;
             }
         });
+
+        // 3. Merge Settings
+        const mergedSettings = { ...local.settings, ...cloud.settings };
+        if ((cloud.settings?.patientCounter || 0) > (local.settings.patientCounter || 0)) {
+            mergedSettings.patientCounter = cloud.settings.patientCounter;
+        }
+
+        return {
+            ...local,
+            patients: mergedPatients,
+            finances: { ...(local.finances || {}), transactions: mergedTxs },
+            settings: mergedSettings,
+            users: cloud.users || local.users, // Priority to cloud for users
+            logs: this.mergeLogs(local.logs || [], cloud.logs || [])
+        };
+    }
+
+    mergeLogs(local, cloud) {
+        const merged = [...local];
+        cloud.forEach(cl => {
+            if (!merged.some(l => l.timestamp === cl.timestamp && l.action === cl.action)) {
+                merged.push(cl);
+            }
+        });
+        return merged.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)).slice(0, 1000);
+    }
+
+    isOnline() {
+        return navigator.onLine;
+    }
+
+    dispatchSyncStatus(status, latency = 0, message = '') {
+        const event = new CustomEvent('syncStatusChanged', {
+            detail: { status, latency, message }
+        });
         window.dispatchEvent(event);
+    }
+
+    dispatchSyncError(error) {
+        let message = 'Connection Error';
+        if (typeof error === 'string') message = error;
+        else if (error && error.message) {
+            message = error.message;
+            if (message.includes('quota')) message = 'Firestore Quota Full';
+            if (message.includes('permission')) message = 'Access Denied (Refresh Session)';
+        }
+
+        const event = new CustomEvent('syncStatusChanged', {
+            detail: { status: 'error', latency: 0, message: message }
+        });
+        window.dispatchEvent(event);
+    }
+
+    updateSyncUI() {
+        this.dispatchSyncStatus(this.cloudStatus, this.lastLatency);
     }
 
     /**
@@ -1230,7 +1323,11 @@ class SyncManager {
      * Caution: This currently overwrites local data.
      */
     async pullFromCloud() {
-        if (typeof db === 'undefined' || !db) return false;
+        if (typeof db === 'undefined' || !db) {
+            this.cloudStatus = 'offline';
+            this.updateSyncUI();
+            return false;
+        }
 
         try {
             this.cloudStatus = 'syncing';
@@ -1278,6 +1375,7 @@ class SyncManager {
                     localStorage.setItem(this.DB_KEY, JSON.stringify(this.data));
 
                     this.isPullDone = true;
+                    this.cloudStatus = 'online';
                     console.log("Cloud pull: Applied and Sanitized successfully.");
 
                     // Force Stats Refresh in Dashboard if active
@@ -1289,7 +1387,19 @@ class SyncManager {
                     setTimeout(() => this.triggerCloudSync(), 1000);
 
                     return true;
+                } else {
+                    console.warn("Cloud pull: Document exists but has no data. Using local state.");
+                    this.isPullDone = true;
+                    this.cloudStatus = 'online';
+                    setTimeout(() => this.triggerCloudSync(), 500);
                 }
+            } else {
+                console.warn("Cloud pull: Document does not exist yet. Using local state.");
+                this.isPullDone = true;
+                this.isNewSession = false;
+                this.cloudStatus = 'online';
+                // Trigger immediate push to seed cloud
+                setTimeout(() => this.triggerCloudSync(), 500);
             }
         } catch (error) {
             console.error("Cloud pull failed:", error);
@@ -1301,3 +1411,4 @@ class SyncManager {
 }
 
 window.syncManager = new SyncManager();
+console.log("SyncManager: Initialized successfully and ready for operation.");
