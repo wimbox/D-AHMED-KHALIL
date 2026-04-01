@@ -413,7 +413,15 @@ class DashboardUI {
             }
 
             const lowerQuery = query.toLowerCase();
+            const queryHasHash = query.includes('#');
+            const cleanQuery = query.replace(/#/g, '').trim();
+
             const patients = syncManager.getPatientsByClinic().filter(p => {
+                // If hash is present, prioritize exact code match
+                if (queryHasHash && cleanQuery) {
+                    return p.patientCode && p.patientCode.toString() === cleanQuery;
+                }
+
                 const matchBasic = (p.name && p.name.toLowerCase().includes(lowerQuery)) ||
                     (p.phone && p.phone.includes(query)) ||
                     (p.patientCode && p.patientCode.toString().includes(query));
@@ -546,7 +554,17 @@ class DashboardUI {
                     return;
                 }
 
-                const patients = syncManager.getPatientsByClinic().filter(p => p.name.includes(query));
+                const lowerQuery = query.toLowerCase();
+                const queryHasHash = query.startsWith('#') || query.endsWith('#');
+                const cleanQuery = query.replace(/#/g, '').trim();
+
+                const patients = syncManager.getPatientsByClinic().filter(p => {
+                    if (queryHasHash && cleanQuery) {
+                        return p.patientCode && p.patientCode.toString() === cleanQuery;
+                    }
+                    return p.name.includes(query) || (p.patientCode && p.patientCode.toString().includes(query));
+                });
+
                 if (patients.length > 0) {
                     this.elements.appointmentSuggestions.innerHTML = patients.map(p => {
                         // Fetch last 2 appointments for history

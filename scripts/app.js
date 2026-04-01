@@ -576,7 +576,7 @@ class App {
                 // Ensure ID is displayed as #123#
                 // We use the patientCode (human readable) instead of the UUID
                 const code = selected.patientCode || '---';
-                idEl.textContent = `#${code}#`;
+                idEl.textContent = `#${code}`;
             }
 
             // Show allergy alert if exists

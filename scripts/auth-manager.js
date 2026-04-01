@@ -19,23 +19,31 @@ class AuthManager {
     }
 
     setupLogoutUI() {
-        // Look for existing logout or append to sidebar
-        const sidebar = document.querySelector('.nav-menu');
-        const existingLogout = document.getElementById('btn-logout');
+        const logoutBtn = document.getElementById('btn-logout');
+        if (logoutBtn) {
+            logoutBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                console.log("AuthManager: Logout button clicked.");
+                this.logout();
+            });
+        }
 
-        if (sidebar && !existingLogout) {
-            const logoutLink = document.createElement('a');
-            logoutLink.href = "javascript:void(0)";
-            logoutLink.className = "nav-item";
-            logoutLink.id = "btn-logout";
-            logoutLink.style.marginTop = "10px";
-            logoutLink.style.color = "#ef4444";
-            logoutLink.innerHTML = `
-                <i class="fa-solid fa-arrow-right-from-bracket"></i>
-                <span>تسجيل خروج</span>
-            `;
-            logoutLink.onclick = () => this.logout();
-            sidebar.appendChild(logoutLink);
+        const shutdownBtn = document.getElementById('btn-shutdown');
+        if (shutdownBtn) {
+            shutdownBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                console.log("AuthManager: Shutdown button clicked.");
+                if (window.dashboardUI) window.dashboardUI.shutdownApp();
+            });
+        }
+
+        const queueBtn = document.getElementById('btn-queue-display');
+        if (queueBtn) {
+            queueBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                console.log("AuthManager: Queue display button clicked.");
+                window.open('queue-display.html', '_blank', 'width=1400,height=900,scrollbars=yes,resizable=yes');
+            });
         }
     }
 
