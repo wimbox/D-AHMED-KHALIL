@@ -1,13 +1,7 @@
 /**
- * SyncManager: Handles local data with background cloud sync preparation.
- * Supports CRUD operations with offline persistence.
+ * SyncManager: Optimized for Ultra-Fast Fragmented Cloud Sync.
+ * Handles local-first data with background fragmented Firestore synchronization.
  */
-
-// --- إعدادات النظام ---
-const GLOBAL_CONFIG = {
-    STARTING_CODE: 100,
-    CLINIC_NAME: 'الاسكندرية'
-};
 
 class SyncManager {
     constructor() {
@@ -16,16 +10,10 @@ class SyncManager {
         this.isNewSession = !localStorage.getItem(this.DB_KEY);
         this.isPullDone = false; 
         this.isMigrating = false;
-        this.syncQueue = []; 
         this.isSyncing = false;
-        this.hasDirtyData = false;
-
-        this.backupHandle = null;
-        this.isAutoBackupEnabled = false;
         this.cloudStatus = 'offline';
         this.lastLatency = 0;
         this.syncTimeout = null;
-        this.isSyncingInProgress = false;
 
         this.initSyncListeners();
     }
@@ -37,14 +25,11 @@ class SyncManager {
                 this.notifyDataChanged();
             }
         });
+        // Faster Initialization (150ms instead of 1000ms)
         setTimeout(() => {
-            console.log("[SyncManager] Initializing Cloud Observer...");
             this.startCloudObserver();
-            if (this.isNewSession) {
-                console.log("[SyncManager] New session detected, pulling...");
-                this.pullFromCloud();
-            }
-        }, 1000);
+            if (this.isNewSession) this.pullFromCloud();
+        }, 150);
     }
 
     notifyDataChanged() {
@@ -53,9 +38,9 @@ class SyncManager {
 
     loadLocal() {
         const saved = localStorage.getItem(this.DB_KEY);
+        const alexId = 'clinic-default';
         if (saved) {
             const parsed = JSON.parse(saved);
-            const alexId = 'clinic-default';
             if (!parsed.clinics) parsed.clinics = [{ id: alexId, name: 'الاسكندرية', isActive: true }];
             if (!parsed.settings) parsed.settings = { lastPatientCode: 100, activeClinicId: alexId };
             if (!parsed.settings.activeClinicId) parsed.settings.activeClinicId = alexId;
@@ -65,9 +50,9 @@ class SyncManager {
             patients: [],
             appointments: [],
             finances: { transactions: [], ledger: {} },
-            settings: { lastPatientCode: 100, activeClinicId: 'clinic-default' },
-            logs: [],
-            clinics: [{ id: 'clinic-default', name: 'الاسكندرية', isActive: true }]
+            settings: { lastPatientCode: 100, activeClinicId: alexId },
+            auditLog: [],
+            clinics: [{ id: alexId, name: 'الاسكندرية', isActive: true }]
         };
     }
 
@@ -75,12 +60,12 @@ class SyncManager {
         this.data.settings.lastLocalUpdate = new Date().toISOString();
         try { localStorage.setItem(this.DB_KEY, JSON.stringify(this.data)); } catch (e) {}
         
+        // Faster Debounce (400ms instead of 800ms)
         if (this.syncTimeout) clearTimeout(this.syncTimeout);
         this.syncTimeout = setTimeout(async () => {
             this.recalculatePatientCounter();
             await this.triggerCloudSync();
-        }, 800); 
-        this.hasDirtyData = true;
+        }, 400); 
     }
 
     logAction(user, action, details, meta = null) {
@@ -95,6 +80,16 @@ class SyncManager {
     getPatients() { return this.data.patients || []; }
     getAppointments() { return this.data.appointments || []; }
     getLogs() { return this.data.auditLog || []; }
+    getClinics() { return this.data.clinics || []; }
+    getActiveClinic() { 
+        const id = (this.data.settings && this.data.settings.activeClinicId) || 'clinic-default';
+        return this.getClinics().find(c => c.id === id) || this.getClinics()[0] || { id: 'clinic-default', name: 'الاسكندرية' };
+    }
+    setActiveClinic(id) { 
+        this.data.settings.activeClinicId = id; 
+        this.saveLocal(); 
+        return true; 
+    }
 
     startCloudObserver() {
         if (typeof db === 'undefined' || !db) return;
@@ -129,68 +124,68 @@ class SyncManager {
 
     assembleAndMergeFragments(fragments) {
         if (!fragments || Object.keys(fragments).length === 0) return;
-        
         const metadata = fragments['metadata'];
         if (!metadata) return;
 
-        const cloudTime = metadata.updatedAt?.toDate?.()?.getTime() || 0;
-        const lastSyncTime = new Date(this.data.settings?.lastSync || 0).getTime();
+        const cloudUpdate = metadata.updatedAt?.toDate?.()?.getTime() || 0;
+        const lastSync = new Date(this.data.settings?.lastSync || 0).getTime();
         
-        if (this.isNewSession || this.data.patients.length === 0 || (cloudTime > lastSyncTime - 1000)) {
-            let patients = [];
-            const patientInfo = fragments['patients_info'];
-            if (patientInfo) {
-                for (let i = 0; i < patientInfo.totalChunks; i++) {
-                    const chunk = fragments[`patients_${i}`];
-                    if (chunk && chunk.data) patients.push(...chunk.data);
-                }
+        // Fast skip if local is already fresh
+        if (!this.isNewSession && this.data.patients.length > 0 && (cloudUpdate <= lastSync + 100)) return;
+
+        let patients = [];
+        const pInfo = fragments['patients_info'];
+        if (pInfo) {
+            for (let i = 0; i < pInfo.totalChunks; i++) {
+                const chunk = fragments[`patients_${i}`];
+                if (chunk && chunk.data) patients.push(...chunk.data);
             }
-
-            let appointments = [];
-            const apptInfo = fragments['appointments_info'];
-            if (apptInfo) {
-                for (let i = 0; i < apptInfo.totalChunks; i++) {
-                    const chunk = fragments[`appointments_${i}`];
-                    if (chunk && chunk.data) appointments.push(...chunk.data);
-                }
-            }
-
-            const finances = fragments['finances'] || this.data.finances;
-            const auditLog = (fragments['audit_log']?.data) || this.data.auditLog || [];
-            
-            const alexId = 'clinic-default';
-            (patients || []).forEach(p => { if (!p.clinicId || p.clinicId === 'undefined') p.clinicId = alexId; });
-            (appointments || []).forEach(a => { if (!a.clinicId || a.clinicId === 'undefined') a.clinicId = alexId; });
-
-            this.data = {
-                ...this.data,
-                clinics: metadata.clinics || this.data.clinics,
-                users: metadata.users || this.data.users,
-                settings: metadata.settings || this.data.settings,
-                patients: patients.length > 0 ? patients : this.data.patients,
-                appointments: appointments.length > 0 ? appointments : this.data.appointments,
-                finances: {
-                    transactions: finances.transactions || [],
-                    ledger: finances.ledger || {}
-                },
-                auditLog: auditLog
-            };
-
-            this.data.settings.lastSync = new Date().toISOString();
-            localStorage.setItem(this.DB_KEY, JSON.stringify(this.data));
-            this.cloudStatus = 'online';
-            this.isNewSession = false;
-            
-            this.notifyDataChanged();
-            this.updateSyncUI();
         }
+
+        let appointments = [];
+        const aInfo = fragments['appointments_info'];
+        if (aInfo) {
+            for (let i = 0; i < aInfo.totalChunks; i++) {
+                const chunk = fragments[`appointments_${i}`];
+                if (chunk && chunk.data) appointments.push(...chunk.data);
+            }
+        }
+
+        const finances = fragments['finances'] || this.data.finances || { transactions: [], ledger: {} };
+        const auditLog = fragments['audit_log']?.data || this.data.auditLog || [];
+        
+        const alexId = 'clinic-default';
+        (patients || []).forEach(p => { if (!p.clinicId || p.clinicId === 'undefined') p.clinicId = alexId; });
+        (appointments || []).forEach(a => { if (!a.clinicId || a.clinicId === 'undefined') a.clinicId = alexId; });
+
+        this.data = {
+            ...this.data,
+            clinics: metadata.clinics || this.data.clinics,
+            users: metadata.users || this.data.users,
+            settings: { ...this.data.settings, ...metadata.settings },
+            patients: patients.length > 0 ? patients : this.data.patients,
+            appointments: appointments.length > 0 ? appointments : this.data.appointments,
+            finances: {
+                transactions: finances.transactions || [],
+                ledger: finances.ledger || {}
+            },
+            auditLog: auditLog
+        };
+
+        this.data.settings.lastSync = new Date().toISOString();
+        localStorage.setItem(this.DB_KEY, JSON.stringify(this.data));
+        this.cloudStatus = 'online';
+        this.isNewSession = false;
+        
+        this.notifyDataChanged();
+        this.updateSyncUI();
     }
 
     recalculatePatientCounter() {
-        if (!this.data.patients) return;
+        if (!this.data.patients || this.data.patients.length === 0) return;
         const codes = this.data.patients.map(p => {
-            const numericPart = String(p.patientCode || "").replace(/\D/g, "");
-            return parseInt(numericPart) || 0;
+            const num = String(p.patientCode || "").replace(/\D/g, "");
+            return parseInt(num) || 0;
         });
         this.data.settings.lastPatientCode = Math.max(100, ...codes);
     }
@@ -220,35 +215,23 @@ class SyncManager {
         }
     }
 
-    getClinics() { return this.data.clinics || []; }
-    getActiveClinic() { 
-        const id = this.data.settings.activeClinicId || 'clinic-default';
-        return this.getClinics().find(c => c.id === id) || this.getClinics()[0] || { id: 'clinic-default', name: 'الاسكندرية' };
-    }
-    setActiveClinic(id) { 
-        this.data.settings.activeClinicId = id; 
-        this.saveLocal(); 
-        return true; 
-    }
-
     getPatientsByClinic(clinicId = null) {
-        const target = clinicId || this.data.settings.activeClinicId;
+        const target = clinicId || this.data.settings.activeClinicId || 'clinic-default';
         const alexId = 'clinic-default';
         return (this.data.patients || []).filter(p => (target === alexId) ? (!p.clinicId || p.clinicId === target) : p.clinicId === target);
     }
     getAppointmentsByClinic(clinicId = null) {
-        const target = clinicId || this.data.settings.activeClinicId;
+        const target = clinicId || this.data.settings.activeClinicId || 'clinic-default';
         const alexId = 'clinic-default';
         return (this.data.appointments || []).filter(a => (target === alexId) ? (!a.clinicId || a.clinicId === target) : a.clinicId === target);
     }
-    getTransactionsByClinic(clinicId = null) {
-        return this.data.finances?.transactions || [];
-    }
+    getTransactionsByClinic() { return this.data.finances?.transactions || []; }
 
-    // --- Cloud Sync ---
     async triggerCloudSync() {
         if (typeof db === 'undefined' || !db || !this.isPullDone || this.isSyncing) return false;
-        if (this.data.patients.length === 0) return false;
+        
+        // Safety lock: Don't push if local data is empty but we should have records
+        if (this.data.patients.length === 0 && !this.isNewSession) return false;
 
         this.isSyncing = true;
         this.cloudStatus = 'syncing';
@@ -265,11 +248,12 @@ class SyncManager {
                 updatedAt
             });
 
-            const pChunks = this.chunkArray(clean.patients, 200);
+            // Optimized Chunks: 350 per fragment for faster uploads
+            const pChunks = this.chunkArray(clean.patients, 350);
             pChunks.forEach((chunk, i) => batch.set(db.collection('clinic_fragments').doc(`patients_${i}`), { data: chunk, updatedAt }));
             batch.set(db.collection('clinic_fragments').doc('patients_info'), { totalChunks: pChunks.length, updatedAt });
 
-            const aChunks = this.chunkArray(clean.appointments, 300);
+            const aChunks = this.chunkArray(clean.appointments, 400);
             aChunks.forEach((chunk, i) => batch.set(db.collection('clinic_fragments').doc(`appointments_${i}`), { data: chunk, updatedAt }));
             batch.set(db.collection('clinic_fragments').doc('appointments_info'), { totalChunks: aChunks.length, updatedAt });
 
@@ -291,7 +275,7 @@ class SyncManager {
     }
 
     async pullFromCloud() {
-        if (typeof db === 'undefined' || !db) return false;
+        if (typeof db === 'undefined' || !db || this.isSyncing) return false;
         this.isSyncing = true;
         this.cloudStatus = 'syncing';
         this.updateSyncUI();
@@ -322,10 +306,9 @@ class SyncManager {
 
     isBackupOverdue() {
         if (!this.data.settings.lastBackup) return true;
-        const diff = new Date().getTime() - new Date(this.data.settings.lastBackup).getTime();
-        return diff > (24 * 60 * 60 * 1000); 
+        return (new Date().getTime() - new Date(this.data.settings.lastBackup).getTime()) > (24 * 60 * 60 * 1000);
     }
 }
 
 window.syncManager = new SyncManager();
-console.log("SyncManager: Final Version Active.");
+console.log("Nitro Sync Ready.");
