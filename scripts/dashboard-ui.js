@@ -64,12 +64,26 @@ class DashboardUI {
 
             const confirmBtn = overlay.querySelector('.btn-modal-confirm');
             confirmBtn.onclick = async () => {
-                // If onConfirm returns false (validation failed), do not close
-                if (onConfirm) {
-                    const result = await onConfirm();
-                    if (result === false) return;
+                const originalText = confirmBtn.innerHTML;
+                confirmBtn.disabled = true;
+                confirmBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> جاري التنفيذ...';
+                
+                try {
+                    if (onConfirm) {
+                        const result = await onConfirm(overlay);
+                        if (result === false) {
+                            confirmBtn.disabled = false;
+                            confirmBtn.innerHTML = originalText;
+                            return;
+                        }
+                    }
+                    overlay.remove();
+                } catch (err) {
+                    console.error("Modal Action Error:", err);
+                    alert("خطأ في تنفيذ العملية: " + err.message); // Visual fallback
+                    confirmBtn.disabled = false;
+                    confirmBtn.innerHTML = originalText;
                 }
-                overlay.remove();
             };
             if (showCancel) {
                 overlay.querySelector('.btn-modal-cancel').onclick = () => {
@@ -181,7 +195,7 @@ class DashboardUI {
         this.initGlobalSearch();
         this.initAppointmentLogic();
         this.initPatientLogic();
-        // this.initSettingsLogic(); // Missing method causing crash
+        this.initSettingsLogic();
         this.startModalClock();
 
         // Populate Time Selects
@@ -697,7 +711,11 @@ class DashboardUI {
 
 
         if (patientForm) {
-            const savePatientAction = () => {
+            let isSavingPatient = false;
+
+            const savePatientAction = async () => {
+                if (isSavingPatient) return null;
+
                 const fullName = document.getElementById('book-patient-name').value.trim();
                 const ageNum = document.getElementById('book-age-number').value || 0;
                 const ageUnit = document.getElementById('book-age-unit').value || 'سنة';
@@ -737,9 +755,15 @@ class DashboardUI {
                     patientData.id = patientForm.dataset.editId;
                 }
 
+                // UI Protection: Disable Buttons
+                isSavingPatient = true;
+                const submitBtn = patientForm.querySelector('button[type="submit"]');
+                const saveAndBookBtn = document.getElementById('btn-save-and-book');
+                if (submitBtn) submitBtn.disabled = true;
+                if (saveAndBookBtn) saveAndBookBtn.disabled = true;
 
                 try {
-                    const result = syncManager.upsertPatient(patientData);
+                    const result = await syncManager.upsertPatient(patientData);
                     this.updateStats();
                     this.renderPatientsManagement();
                     return result;
@@ -748,12 +772,17 @@ class DashboardUI {
                     console.error("Error saving patient:", err);
                     alert("حدث خطأ أثناء حفظ البيانات. يرجى المحاولة مرة أخرى.");
                     return null;
+                } finally {
+                    isSavingPatient = false;
+                    if (submitBtn) submitBtn.disabled = false;
+                    if (saveAndBookBtn) saveAndBookBtn.disabled = false;
                 }
             };
 
-            patientForm.onsubmit = (e) => {
+            patientForm.onsubmit = async (e) => {
                 e.preventDefault();
-                if (savePatientAction()) {
+                const saved = await savePatientAction();
+                if (saved) {
                     patientModal.style.display = 'none';
                     window.soundManager.playSuccess();
                     showNeuroModal('تم الحفظ', 'تم حفظ بيانات المريض بنجاح.', null, false);
@@ -762,8 +791,8 @@ class DashboardUI {
 
             const saveAndBookBtn = document.getElementById('btn-save-and-book');
             if (saveAndBookBtn) {
-                saveAndBookBtn.onclick = () => {
-                    const savedPatient = savePatientAction();
+                saveAndBookBtn.onclick = async () => {
+                    const savedPatient = await savePatientAction();
                     if (savedPatient) {
                         patientModal.style.display = 'none';
                         window.soundManager.playSuccess();
@@ -1007,56 +1036,73 @@ class DashboardUI {
 
 
     updateStats() {
-        // Force direct filtered fetch to ensure branch isolation
         const patients = syncManager.getPatientsByClinic();
         const appointments = syncManager.getAppointmentsByClinic();
         const transactions = syncManager.getTransactionsByClinic();
 
         const activeClinic = syncManager.getActiveClinic();
-        const currency = activeClinic?.settings?.currency || 'EGP';
-
-        // Log for debugging (Hidden from user)
-        console.log(`Stats update for clinic: ${activeClinic?.name} (${activeClinic?.id})`);
+        const currency = "EGP"; // Default currency
 
         const now = new Date();
-        const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-        const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+        const todayStr = now.toISOString().split('T')[0];
+        const currentMonthStr = todayStr.substring(0, 7);
 
-        const apptsToday = appointments.filter(a => {
-            if (!a.datetime) return false;
-            const appDateStr = a.datetime.split('T')[0].replace(/\//g, '-');
-            const [y, m, d] = appDateStr.split('-');
-            const normalizedAppDate = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-            return normalizedAppDate === todayStr;
-        }).length;
+        // --- Today's Stats ---
+        const apptsToday = appointments.filter(a => a.datetime && a.datetime.split('T')[0] === todayStr).length;
 
-        const monthlyTransactions = transactions.filter(t => {
-            if (!t.date) return false;
-            const cleanDate = t.date.replace(/\//g, '-');
-            return cleanDate.startsWith(currentMonthStr);
-        });
-
+        // --- Monthly Financials ---
+        const monthlyTransactions = transactions.filter(t => t.date && t.date.substring(0, 7) === currentMonthStr);
         const income = monthlyTransactions.filter(t => t.type === 'income').reduce((sum, t) => sum + parseFloat(t.amount || 0), 0);
         const expenses = monthlyTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + parseFloat(t.amount || 0), 0);
-
-        let totalDues = 0;
-        patients.forEach(p => {
-            const ledger = syncManager.data.finances.ledger[p.id];
-            if (ledger && ledger.balance < 0) {
-                totalDues += Math.abs(ledger.balance);
-            }
-        });
-
         const netProfit = income - expenses;
 
-        if (this.stats.patients) this.stats.patients.textContent = patients.length;
-        if (this.stats.appointments) this.stats.appointments.textContent = apptsToday;
+        // --- All-time Dues ---
+        let totalDues = 0;
+        const ledgers = syncManager.data.finances.ledger || {};
+        Object.values(ledgers).forEach(ledger => {
+            if (ledger && ledger.balance < 0) totalDues += Math.abs(ledger.balance);
+        });
+
+        // Update UI Elements
+        if (this.stats.patients) this.stats.patients.textContent = patients.length || 0;
+        if (this.stats.appointments) this.stats.appointments.textContent = apptsToday || 0;
         if (this.stats.income) this.stats.income.textContent = income.toLocaleString() + " " + currency;
         if (this.stats.expenses) this.stats.expenses.textContent = expenses.toLocaleString() + " " + currency;
         if (this.stats.dues) this.stats.dues.textContent = totalDues.toLocaleString() + " " + currency;
         if (this.stats.netProfit) {
             this.stats.netProfit.textContent = netProfit.toLocaleString() + " " + currency;
             this.stats.netProfit.style.color = netProfit >= 0 ? '#10b981' : '#ef4444';
+        }
+
+        // Force Sync Status UI update
+        if (window.syncManager) window.syncManager.updateSyncUI();
+    }
+
+    initSettingsLogic() {
+        // Handle Sidebar Navigation
+        document.querySelectorAll('.nav-item').forEach(item => {
+            item.onclick = () => {
+                const view = item.dataset.view;
+                if (!view) return;
+                
+                this.switchView(view);
+                
+                if (view === 'settings') {
+                    this.loadSettingsView();
+                } else if (view === 'patients') {
+                    this.renderPatientsManagement();
+                } else if (view === 'finance') {
+                    this.renderFinanceTable();
+                } else if (view === 'appointments') {
+                    this.renderAllAppointments();
+                }
+            };
+        });
+
+        // Shutdown App Logic
+        const shutdownBtn = document.getElementById('btn-shutdown');
+        if (shutdownBtn) {
+            shutdownBtn.onclick = () => this.shutdownApp();
         }
     }
 
@@ -2147,34 +2193,49 @@ class DashboardUI {
         const reader = new FileReader();
         reader.onload = (e) => {
             const content = e.target.result;
-            showNeuroModal('تأكيد الاستعادة الكاملة (JSON)', 'هل أنت متأكد؟ سيتم حذف جميع البيانات الحالية واستبدالها بمحتوى الملف المرفوع. هذه العملية لا يمكن التراجع عنها.', async () => {
-                if (syncManager.restoreBackup(content)) {
-                    window.soundManager?.playSuccess();
+            
+            // Verify if JSON is even valid before showing modal
+            try {
+                JSON.parse(content);
+            } catch (e) {
+                alert("الملف المختار ليس ملف JSON صحيح.");
+                return;
+            }
 
-                    // Force immediate cloud sync and wait for it
-                    if (window.syncManager && typeof db !== 'undefined') {
-                        const statusMsg = document.createElement('div');
-                        statusMsg.innerHTML = '<div style="text-align:center; padding:15px; color:#00eaff;"><i class="fa-solid fa-sync fa-spin"></i> جاري رفع البيانات المستعادة للسحابة... يرجى الانتظار</div>';
-                        document.querySelector('.neuro-modal-msg').appendChild(statusMsg);
-
-                        const syncSuccess = await window.syncManager.triggerCloudSync();
-                        if (!syncSuccess) {
-                            window.showNeuroToast('⚠️ تم تحديث البيانات محلياً ولكن فشل الرفع للسحاب. سيتم الرفع لاحقأ.', 'error');
-                        }
+            window.showNeuroModal('تأكيد الاستعادة الكاملة (JSON)', 'هل أنت متأكد؟ سيتم حذف جميع البيانات الحالية واستبدالها بمحتوى الملف المرفوع.', async (modalOverlay) => {
+                try {
+                    // Force re-check of syncManager instance
+                    const manager = window.syncManager;
+                    if (!manager || typeof manager.restoreBackup !== 'function') {
+                        throw new Error("نظام المزامنة (SyncManager) لم يتم تحميله بالكامل بعد. يرجى تحديث الصفحة.");
                     }
 
-                    window.showNeuroToast('تم استعادة البيانات بنجاح! جارِ إعادة التشغيل..');
-                    setTimeout(() => window.location.reload(), 2000);
-                    return true;
-                } else {
-                    window.showNeuroToast('خطأ: الملف المرفوع ليس نسخة احتياطية صحيحة.', 'error');
-                    window.soundManager?.playError();
+                    if (manager.restoreBackup(content)) {
+                        const msgContainer = modalOverlay.querySelector('.neuro-modal-msg');
+                        if (msgContainer) {
+                            msgContainer.innerHTML += '<div style="margin-top:15px; padding:10px; color:#10b981; border:1px solid #10b981; border-radius:8px;">✅ تم الحفظ محلياً.. جاري المزامنة...</div>';
+                        }
+
+                        // Try Sync
+                        if (typeof db !== 'undefined') {
+                            await window.syncManager.triggerCloudSync();
+                        }
+
+                        alert('تم استعادة البيانات بنجاح! سيتم الآن إعادة تحميل الصفحة.');
+                        window.location.reload();
+                        return true;
+                    } else {
+                        alert('فشل تطبيق النسخة الاحتياطية. قد يكون الملف تالفاً.');
+                        return false;
+                    }
+                } catch (restoreErr) {
+                    alert("خطأ أثناء الاستعادة: " + restoreErr.message);
                     return false;
                 }
             });
         };
         reader.readAsText(file);
-        event.target.value = ''; // Reset input
+        event.target.value = ''; 
     }
 
     handleRestoreCSV(event) {
@@ -2184,8 +2245,8 @@ class DashboardUI {
         const reader = new FileReader();
         reader.onload = (e) => {
             const content = e.target.result;
-            showNeuroModal('استيراد مرضى (CSV)', 'سيقوم النظام بقراءة ملف CSV وإضافة المرضى غير الموجودين مسبقاً إلى سجلك الحالي. هل تود الاستمرار؟', async () => {
-                const result = syncManager.restoreFromCSV(content);
+            window.showNeuroModal('استيراد مرضى (CSV)', 'سيقوم النظام بقراءة ملف CSV وإضافة المرضى غير الموجودين مسبقاً إلى سجلك الحالي. هل تود الاستمرار؟', async () => {
+                const result = window.syncManager.restoreFromCSV(content);
                 if (result && result.success) {
                     window.soundManager?.playSuccess();
 
@@ -2262,7 +2323,7 @@ class DashboardUI {
             const pass = document.getElementById('master-reset-pass').value;
 
             if (pass === 'admin123') {
-                const success = syncManager.masterFactoryReset();
+                const success = window.syncManager.masterFactoryReset();
                 if (success) {
                     window.showNeuroToast('تم تصفير النظام بنجاح! العداد سيبدأ من 101.', 'success');
                     window.soundManager?.playSuccess();

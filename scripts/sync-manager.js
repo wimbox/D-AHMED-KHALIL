@@ -3,428 +3,73 @@
  * Supports CRUD operations with offline persistence.
  */
 
-// --- إعدادات النظام (يمكنك التعديل من هنا مباشرة) ---
+// --- إعدادات النظام ---
 const GLOBAL_CONFIG = {
     STARTING_CODE: 100,
     CLINIC_NAME: 'الاسكندرية'
 };
-// -----------------------------------------------
+
 class SyncManager {
     constructor() {
         this.DB_KEY = 'neuro_clinic_data_v1';
-        // Force Reload Logic Fix
         this.data = this.loadLocal();
         this.isNewSession = !localStorage.getItem(this.DB_KEY);
-        this.isPullDone = false; // Start false to force initial check
-        this.syncQueue = []; // For granular updates
+        this.isPullDone = false; 
+        this.isMigrating = false;
+        this.syncQueue = []; 
         this.isSyncing = false;
+        this.hasDirtyData = false; // Flag to track changes during sync
 
         this.backupHandle = null; // System directory handle for Auto-Guardian
         this.isAutoBackupEnabled = false;
-
         this.cloudStatus = 'offline';
         this.lastLatency = 0;
         this.syncTimeout = null;
         this.isSyncingInProgress = false;
 
-        // Initialize real-time synchronization listeners
         this.initSyncListeners();
-
-        // Safe-Exit Browser Listener (Guardian Second Chance)
-        this.initExitListener();
-
-        // Try restoring folder handle from IndexedDB (Auto-Guardian Persistence)
-        this.restoreFolderHandle();
     }
 
-    /**
-     * Browser Safety: Prompt user before closing to prevent data loss.
-     * Changed: Disabled intrusive browser beforeunload by user request.
-     */
-    initExitListener() {
-        // Feature disabled intentionally.
-        // The application now relies on explicit logout/close buttons from the UI.
-    }
-
-    /**
-     * Persistence: Try to find a saved folder handle in IndexedDB
-     */
-    async restoreFolderHandle() {
-        if (!('showDirectoryPicker' in window)) return;
-        try {
-            const handle = await this.getHandleFromDB();
-            if (handle) {
-                // Verify if we still have permission (usually requires a user click to re-activate)
-                const permission = await handle.queryPermission({ mode: 'readwrite' });
-                if (permission === 'granted') {
-                    this.backupHandle = handle;
-                    this.isAutoBackupEnabled = true;
-                    console.log("SyncManager: Auto-Guardian handle restored successfully.");
-                } else {
-                    console.log("SyncManager: Saved handle found, but needs re-activation.");
-                    this.savedHandleProxy = handle; // Store for DashboardUI to trigger re-activation
-                }
-            }
-        } catch (err) { console.warn("Failed to restore handle:", err); }
-    }
-
-    async saveHandleToDB(handle) {
-        return new Promise((resolve, reject) => {
-            const request = indexedDB.open("NeuroGuardianDB", 1);
-            request.onupgradeneeded = (e) => e.target.result.createObjectStore("handles");
-            request.onsuccess = (e) => {
-                const db = e.target.result;
-                const tx = db.transaction("handles", "readwrite");
-                tx.objectStore("handles").put(handle, "auto_guardian_folder");
-                tx.oncomplete = () => resolve();
-            };
-            request.onerror = () => reject();
-        });
-    }
-
-    async getHandleFromDB() {
-        return new Promise((resolve) => {
-            const request = indexedDB.open("NeuroGuardianDB", 1);
-            request.onupgradeneeded = (e) => e.target.result.createObjectStore("handles");
-            request.onsuccess = (e) => {
-                const db = e.target.result;
-                const tx = db.transaction("handles", "readonly");
-                const getReq = tx.objectStore("handles").get("auto_guardian_folder");
-                getReq.onsuccess = () => resolve(getReq.result);
-                getReq.onerror = () => resolve(null);
-            };
-            request.onerror = () => resolve(null);
-        });
-    }
-
-    /**
-     * Gets the most appropriate backup path/description based on environment.
-     */
-    getBackupInfo() {
-        if (window.electronAPI) {
-            return {
-                type: 'desktop',
-                primaryPath: 'D:\\Backups-neuro-clinic',
-                secondaryPaths: ['Desktop', 'Documents'],
-                description: 'المسار المخصص في القرص D:'
-            };
-        } else if (this.backupHandle) {
-            return {
-                type: 'linked-folder',
-                primaryPath: 'المجلد المتصل المحفوظ',
-                description: 'المجلد الذي قمت بربطه يدوياً'
-            };
-        } else {
-            return {
-                type: 'browser',
-                primaryPath: 'تنزيلات المتصفح (Edge/Chrome)',
-                description: 'تحميل ملف نسخة (Downloads)'
-            };
-        }
-    }
-
-
-
-    /**
-     * Set up listeners for cross-tab and cross-device synchronization.
-     */
     initSyncListeners() {
-        // 1. Cross-Tab Sync: Listen for changes from other tabs on the same computer
         window.addEventListener('storage', (e) => {
             if (e.key === this.DB_KEY && e.newValue) {
-                console.log("SyncManager: Data updated in another tab. Syncing local state...");
                 this.data = JSON.parse(e.newValue);
                 this.notifyDataChanged();
             }
         });
-
-        // 2. Cross-Device Sync: Initialize Firestore listener
-        // Reduced delay to 300ms to catch cloud data before any accidental local saves
-        setTimeout(() => this.startCloudObserver(), 300);
+        // 2. Cross-Device Sync: Initialize Fragmented Observer
+        // Aggressive initialization
+        setTimeout(() => {
+            console.log("[SyncManager] Initializing Cloud Observer...");
+            this.startCloudObserver();
+            // Force an initial pull if session is new
+            if (this.isNewSession) {
+                console.log("[SyncManager] New session detected, forcing cloud pull...");
+                this.pullFromCloud();
+            }
+        }, 1000);
     }
 
     notifyDataChanged() {
-        // Dispatch event for UI components to refresh
         window.dispatchEvent(new CustomEvent('syncDataRefreshed', { detail: this.data }));
-        this.updateSyncUI();
     }
 
     loadLocal() {
         const saved = localStorage.getItem(this.DB_KEY);
         if (saved) {
             const parsed = JSON.parse(saved);
-            // Ensure settings and counter exist
-            // Ensure clinics array exists with correct identity
-            if (!parsed.clinics || parsed.clinics.length === 0) {
-                parsed.clinics = [
-                    {
-                        id: 'clinic-default',
-                        name: 'الاسكندرية',
-                        isActive: true,
-                        settings: { currency: 'EGP', timezone: 'Africa/Cairo', workingHours: { start: '09:00', end: '21:00' } }
-                    },
-                    {
-                        id: 'clinic-shubrakhit',
-                        name: 'شبراخيت',
-                        isActive: true,
-                        settings: { currency: 'EGP', timezone: 'Africa/Cairo', workingHours: { start: '09:00', end: '21:00' } }
-                    }
-                ];
-            } else {
-                // Fix names if they exist but are wrong
-                const main = parsed.clinics.find(c => c.id === 'clinic-default');
-                if (main) main.name = 'الاسكندرية';
-
-                // Robust Check for Shubrakhit
-                let shub = parsed.clinics.find(c => c.id === 'clinic-shubrakhit');
-                if (!shub) {
-                    // Try finding by name to prevent duplicates if ID was wrong
-                    shub = parsed.clinics.find(c => c.name === 'شبراخيت');
-                    if (shub) {
-                        shub.id = 'clinic-shubrakhit'; // Fix ID
-                    } else {
-                        // Create New
-                        parsed.clinics.push({
-                            id: 'clinic-shubrakhit',
-                            name: 'شبراخيت',
-                            isActive: true,
-                            settings: { currency: 'EGP', timezone: 'Africa/Cairo', workingHours: { start: '09:00', end: '21:00' } }
-                        });
-                    }
-                } else {
-                    // Ensure Name is Correct
-                    shub.name = 'شبراخيت';
-                }
-            }
-
-            // Persistence: Force save back to localStorage if we had to fix things
-            localStorage.setItem(this.DB_KEY, JSON.stringify(parsed));
-
-            // --- ULTIMATE Data Self-Healing (Isolation Fix) ---
-            // CRITICAL: Always assign legacy data to Alexandria (clinic-default), NOT the active clinic
-            // This prevents old data from appearing in Shubrakhit when it's the active clinic
-            let repaired = false;
-            const alexClinicId = 'clinic-default';
-
-            // FORCE CLEANUP: Any data that isn't explicitly in Alexandria 
-            // but was created before we stabilized the branches, MUST be moved back.
-            if (!parsed.settings.hasFixedShubrakhitOverlap_FINAL_V3) {
-                console.log("SyncManager: EXECUTING GLOBAL DATA RESET TO ALEXANDRIA...");
-
-                // 1. Reset Patients
-                (parsed.patients || []).forEach(p => {
-                    if (p.clinicId !== alexClinicId) {
-                        p.clinicId = alexClinicId;
-                        repaired = true;
-                    }
-                });
-                // 2. Reset Appointments
-                (parsed.appointments || []).forEach(a => {
-                    if (a.clinicId !== alexClinicId) {
-                        a.clinicId = alexClinicId;
-                        repaired = true;
-                    }
-                });
-                // 3. Reset Transactions
-                if (parsed.finances?.transactions) {
-                    parsed.finances.transactions.forEach(t => {
-                        if (t.clinicId !== alexClinicId) {
-                            t.clinicId = alexClinicId;
-                            repaired = true;
-                        }
-                    });
-                }
-
-                parsed.settings.hasFixedShubrakhitOverlap_FINAL_V3 = true;
-                repaired = true;
-                localStorage.setItem('neuro_repair_success', 'true');
-            } else {
-                // Ongoing safety: Every single time we load, ensure isolation
-                (parsed.patients || []).forEach(p => {
-                    if (!p.clinicId || p.clinicId === 'undefined') { p.clinicId = alexClinicId; repaired = true; }
-                });
-                (parsed.appointments || []).forEach(a => {
-                    if (!a.clinicId || a.clinicId === 'undefined') { a.clinicId = alexClinicId; repaired = true; }
-                });
-                if (parsed.finances?.transactions) {
-                    parsed.finances.transactions.forEach(t => {
-                        if (!t.clinicId || t.clinicId === 'undefined') { t.clinicId = alexClinicId; repaired = true; }
-                    });
-                }
-            }
-
-            if (repaired) {
-                console.log("SyncManager: Global Data Migration Successful.");
-                localStorage.setItem(this.DB_KEY, JSON.stringify(parsed));
-                this.shouldForceStatsRefresh = true; // NEW FLAG
-            }
-
-            if (parsed.settings.lastPatientCode === undefined || parsed.settings.lastPatientCode < 100) {
-                parsed.settings.lastPatientCode = 100;
-            }
-
-            // --- Migration for New Features (Users & Logs) ---
-            if (!parsed.users) {
-                parsed.users = [
-                    { id: 'admin-001', username: 'admin', password: 'admin', role: 'admin', name: 'المدير العام', assignedClinics: ['clinic-default', 'clinic-shubrakhit'], defaultClinic: 'clinic-default' }
-                ];
-            } else {
-                // Critical Fix: Ensure existing users have clinic assignments
-                const clinicIds = parsed.clinics.map(c => c.id);
-                parsed.users.forEach(u => {
-                    if (!u.assignedClinics || u.assignedClinics.length === 0) {
-                        u.assignedClinics = [...clinicIds];
-                    }
-                });
-
-                // --- SECURITY EXCEPTION: Restrict 'Hind' to Alexandria Only ---
-                const hindUser = parsed.users.find(u => u.name.includes('هند') || u.username === 'hind' || u.username === 'hand');
-                if (hindUser) {
-                    // Remove Shubrakhit from assigned clinics
-                    hindUser.assignedClinics = hindUser.assignedClinics.filter(id => id !== 'clinic-shubrakhit');
-                    // Ensure Alexandria is assigned
-                    if (!hindUser.assignedClinics.includes('clinic-default')) {
-                        hindUser.assignedClinics.push('clinic-default');
-                    }
-                }
-
-                // --- SECURITY EXCEPTION: Restrict 'Sasha' to Alexandria Only ---
-                const sashaUser = parsed.users.find(u => u.name.includes('صشة') || u.name.includes('صشه') || u.username === 'sasha');
-                if (sashaUser) {
-                    // Remove Shubrakhit from assigned clinics
-                    sashaUser.assignedClinics = sashaUser.assignedClinics.filter(id => id !== 'clinic-shubrakhit');
-                    // Ensure Alexandria is assigned
-                    if (!sashaUser.assignedClinics.includes('clinic-default')) {
-                        sashaUser.assignedClinics.push('clinic-default');
-                    }
-                }
-                // -------------------------------------------------------------
-            }
-            if (!parsed.auditLog) parsed.auditLog = [];
-
-            // --- Document Integration Migration ---
-            if (!parsed.patientDocs) {
-                const legacyDocs = localStorage.getItem('neuro-patient-documents');
-                parsed.patientDocs = legacyDocs ? JSON.parse(legacyDocs) : {};
-                console.log("SyncManager: Migrated legacy documents to main sync data.");
-            }
-            // --------------------------------------------------
-
-            // --- Migration for Multi-Clinic Support ---
-            if (!parsed.clinics) {
-                // Create default clinic
-                const defaultClinic = {
-                    id: 'clinic-default',
-                    name: GLOBAL_CONFIG.CLINIC_NAME || 'Neuro-Clinic',
-                    address: '',
-                    phone: '',
-                    logo: null,
-                    isActive: true,
-                    createdAt: new Date().toISOString(),
-                    settings: {
-                        currency: 'EGP',
-                        timezone: 'Africa/Cairo',
-                        workingHours: { start: '09:00', end: '21:00' }
-                    }
-                };
-                parsed.clinics = [defaultClinic];
-
-                // Assign default clinic to all existing data
-                parsed.patients.forEach(p => { if (!p.clinicId) p.clinicId = 'clinic-default'; });
-                parsed.appointments.forEach(a => { if (!a.clinicId) a.clinicId = 'clinic-default'; });
-                if (parsed.finances && parsed.finances.transactions) {
-                    parsed.finances.transactions.forEach(t => { if (!t.clinicId) t.clinicId = 'clinic-default'; });
-                }
-
-                // Assign default clinic to all users
-                parsed.users.forEach(u => {
-                    if (!u.assignedClinics) u.assignedClinics = ['clinic-default'];
-                    if (!u.defaultClinic) u.defaultClinic = 'clinic-default';
-                });
-
-                parsed.settings.activeClinicId = 'clinic-default';
-            }
-            // --------------------------------------------------
-
-            // Migrate: Assign codes to patients who don't have one
-            let changed = false;
-            parsed.patients.forEach(p => {
-                if (p.patientCode === undefined) {
-                    parsed.settings.lastPatientCode++;
-                    p.patientCode = parsed.settings.lastPatientCode;
-                    changed = true;
-                }
-            });
-            if (changed) {
-                this.data = parsed;
-                this.saveLocal();
-            }
-
-            // --- GLOBAL FINANCIAL RECALCULATION (One-time fix for Dues) ---
-            if (!parsed.settings.hasRunRecalcV2) {
-                setTimeout(() => {
-                    if (window.appointmentManager) {
-                        this.recalcAllLedgers();
-                        this.data.settings.hasRunRecalcV2 = true;
-                        this.saveLocal();
-                        console.log("SyncManager: Global financial recalculation completed.");
-                    }
-                }, 1000);
-            }
-
-            // --- Force Sticky Clinic (Persistent across Refreshes) ---
-            const stickyClinicId = localStorage.getItem('neuro_active_clinic_id');
-            if (stickyClinicId && parsed.clinics.find(c => c.id === stickyClinicId)) {
-                parsed.settings.activeClinicId = stickyClinicId;
-            }
-
+            const alexId = 'clinic-default';
+            if (!parsed.clinics) parsed.clinics = [{ id: alexId, name: 'الاسكندرية', isActive: true }];
+            if (!parsed.settings) parsed.settings = { activeClinicId: alexId };
             return parsed;
         }
-
-        // Default Structure
         return {
-            clinics: [
-                {
-                    id: 'clinic-default',
-                    name: GLOBAL_CONFIG.CLINIC_NAME || 'Neuro-Clinic',
-                    address: '',
-                    phone: '',
-                    logo: null,
-                    isActive: true,
-                    createdAt: new Date().toISOString(),
-                    settings: {
-                        currency: 'EGP',
-                        timezone: 'Africa/Cairo',
-                        workingHours: { start: '09:00', end: '21:00' }
-                    }
-                }
-            ],
-            users: [
-                {
-                    id: 'admin-001',
-                    username: 'admin',
-                    password: 'admin',
-                    role: 'admin',
-                    name: 'المدير العام',
-                    assignedClinics: ['clinic-default'],
-                    defaultClinic: 'clinic-default'
-                }
-            ],
-            auditLog: [], // { timestamp, user, action, details }
             patients: [],
-            patientDocs: {}, // { patientId: [docs] }
             appointments: [],
-            finances: {
-                transactions: [],
-                ledger: {}
-            },
-            settings: {
-                clinicName: GLOBAL_CONFIG.CLINIC_NAME,
-                lastSync: null,
-                lastPatientCode: GLOBAL_CONFIG.STARTING_CODE,
-                activeClinicId: 'clinic-default',
-                lastBackup: null // Track the last time a full backup was performed
-            }
+            finances: { transactions: [], ledger: {} },
+            settings: { lastPatientCode: 100, activeClinicId: 'clinic-default' },
+            logs: [],
+            clinics: [{ id: 'clinic-default', name: 'الاسكندرية', isActive: true }]
         };
     }
 
@@ -449,6 +94,7 @@ class SyncManager {
 
     // --- Audit Logging ---
     logAction(user, action, details, meta = null) {
+        if (!this.data.auditLog) this.data.auditLog = [];
         const log = {
             id: crypto.randomUUID(),
             timestamp: new Date().toISOString(),
@@ -593,7 +239,6 @@ class SyncManager {
     }
 
     saveLocal() {
-        // Track the exact moment this local change occurred
         this.data.settings.lastLocalUpdate = new Date().toISOString();
         try {
             localStorage.setItem(this.DB_KEY, JSON.stringify(this.data));
@@ -604,22 +249,25 @@ class SyncManager {
             }
         }
 
-        // Debounce cloud sync to avoid rapid consecutive writes
         if (this.syncTimeout) clearTimeout(this.syncTimeout);
         this.syncTimeout = setTimeout(async () => {
+            this.recalculatePatientCounter(); // Auto-fix numbering watermark before sync
             this.triggerCloudSync();
-
+            
             // --- Auto-Guardian Backup Logic ---
             if (this.isAutoBackupEnabled && this.backupHandle) {
                 try {
                     await this.performAutoBackup();
                 } catch (err) {
                     console.warn("Auto-Guardian: Automatic background backup failed:", err);
-                    this.isAutoBackupEnabled = false; // Disable if permission lost
+                    this.isAutoBackupEnabled = false; 
                     window.dispatchEvent(new CustomEvent('backupStatusChanged'));
                 }
             }
-        }, 500); // 0.5s debounce for faster real-time feeling
+        }, 500); 
+
+        // Mark as dirty for cloud sync
+        this.hasDirtyData = true;
     }
 
     /**
@@ -693,6 +341,10 @@ class SyncManager {
     /**
      * Real-time listener for Firestore changes.
      */
+    /**
+     * Real-time listener for Fragmented Firestore structure.
+     * This bypasses the 1MB limit by merging multiple documents.
+     */
     startCloudObserver() {
         if (typeof db === 'undefined' || !db) {
             console.log("Cloud Observer: Firebase/Firestore not available.");
@@ -701,116 +353,219 @@ class SyncManager {
             return;
         }
 
-        console.log("Cloud Observer: Starting real-time listener...");
-        db.collection('app_data').doc('clinic_master_data').onSnapshot((doc) => {
-            if (doc.exists) {
-                let cloudData = doc.data();
 
-                // --- ATOMIC DEEP CLEANING (Real-time Cloud Guard) ---
-                const alexId = 'clinic-default';
-                let repairedInCloud = false;
-
-                // 1. Repair Patients (Only those with NO ID)
-                (cloudData.patients || []).forEach(p => {
-                    if (!p.clinicId || p.clinicId === 'undefined') { p.clinicId = alexId; repairedInCloud = true; }
-                });
-                // 2. Repair Appointments (Only those with NO ID)
-                (cloudData.appointments || []).forEach(a => {
-                    if (!a.clinicId || a.clinicId === 'undefined') { a.clinicId = alexId; repairedInCloud = true; }
-                });
-                // 3. Repair Transactions (Only those with NO ID)
-                if (cloudData.finances?.transactions) {
-                    cloudData.finances.transactions.forEach(t => {
-                        if (!t.clinicId || t.clinicId === 'undefined') { t.clinicId = alexId; repairedInCloud = true; }
-                    });
-                }
-
-                if (repairedInCloud) {
-                    console.log("Cloud Observer: Legacy data detected in cloud stream. Sanitized in-flight.");
-                    cloudData.settings.hasFixedShubrakhitOverlap_FINAL_V3 = true;
-                }
-
-                // Compare timestamps to decide if we should update local state
-                const cloudTime = cloudData.updatedAt?.toDate?.()?.getTime() || 0;
-                const lastSyncTime = new Date(this.data.settings?.lastSync || 0).getTime();
-                const lastLocalUpdateTime = new Date(this.data.settings?.lastLocalUpdate || 0).getTime();
-
-                if (this.isNewSession || (cloudTime > lastSyncTime && cloudTime > lastLocalUpdateTime)) {
-                    if (cloudData.patients && cloudData.patients.length === 0 && this.data.patients.length > 10) {
-                        console.warn("Cloud Observer: Blocked merge of empty cloud data.");
-                    } else {
-                        console.log("Cloud Observer: Merging sanitized cloud data...");
-
-                        // VITAL PERSISTENCE FIX: Don't let background sync change our branch
-                        const currentActiveId = this.data?.settings?.activeClinicId || localStorage.getItem('neuro_active_clinic_id') || alexId;
-
-                        // --- SMART FIELD MERGE (Name Recovery Logic) ---
-                        // If local has patients without names but cloud has them, recover names
-                        if (this.data.patients && this.data.patients.length > 0) {
-                            cloudData.patients.forEach(cloudP => {
-                                const localP = this.data.patients.find(p => p.id === cloudP.id);
-                                if (localP && !localP.name && cloudP.name) {
-                                    console.log(`Cloud Observer: Recovering missing name for patient ${cloudP.id} (${cloudP.name})`);
-                                    localP.name = cloudP.name;
-                                    localP.patientCode = cloudP.patientCode; // Restore code too
-                                }
-                            });
-                        }
-
-                        this.data = cloudData;
-
-                        // Restore the locally selected branch
-                        this.data.settings.activeClinicId = currentActiveId;
-
-                        localStorage.setItem(this.DB_KEY, JSON.stringify(this.data));
-
-                        // Force Full UI refresh (Boxes + Tables)
-                        if (window.dashboardUI) {
-                            window.dashboardUI.updateStats();
-                            window.dashboardUI.renderTodayAppointments();
-                        }
-
-                        this.notifyDataChanged();
-
-                        // If it was dirty in cloud, push our clean version back immediately
-                        if (repairedInCloud) {
-                            setTimeout(() => this.triggerCloudSync(), 2000);
-                        }
-                    }
-                    this.isNewSession = false;
-                } else {
-                    // EVEN IF LOCAL IS NEWER: Still check for missing names to recover
-                    let recoveredCount = 0;
-                    cloudData.patients.forEach(cloudP => {
-                        const localP = this.data.patients.find(p => p.id === cloudP.id);
-                        if (localP && (!localP.name || localP.name === 'غير معروف') && cloudP.name) {
-                            localP.name = cloudP.name;
-                            localP.patientCode = cloudP.patientCode;
-                            recoveredCount++;
-                        }
-                    });
-
-                    if (recoveredCount > 0) {
-                        console.log(`Cloud Observer: Proactively recovered ${recoveredCount} missing names despite local being newer.`);
-                        this.saveLocal();
-                        if (window.dashboardUI) {
-                            window.dashboardUI.renderTodayAppointments();
-                            window.dashboardUI.updateStats();
-                        }
-                    }
-                    console.log("Cloud Observer: Multi-Clinic State Verified.");
-                }
-                this.isPullDone = true;
-            } else {
-                console.log("Cloud Observer: Cloud document is empty.");
-                this.isPullDone = true;
-                this.isNewSession = false;
+        console.log("SyncManager: Fragmented Observer active (Collection: clinic_fragments)");
+        
+        db.collection('clinic_fragments').onSnapshot((snapshot) => {
+            if (snapshot.empty && !this.isMigrating) {
+                console.log("Cloud Observer: Fragment collection is empty. Checking migration...");
+                this.isMigrating = true;
+                this.checkAndMigrateLegacyData().finally(() => this.isMigrating = false);
+                return;
             }
+
+            const fragments = {};
+            snapshot.forEach(doc => fragments[doc.id] = doc.data());
+
+            // Process assembly
+            this.assembleAndMergeFragments(fragments);
+            
+            this.updateSyncUI();
         }, (error) => {
             console.error("Cloud Observer error:", error);
             this.cloudStatus = 'error';
             this.updateSyncUI();
         });
+    }
+
+    async checkAndMigrateLegacyData() {
+        if (typeof db === 'undefined' || !db) return;
+
+        try {
+            console.log("Migration: Checking legacy 1MB document...");
+            const legacyDoc = await db.collection('app_data').doc('clinic_master_data').get();
+            
+            if (legacyDoc.exists) {
+                const cloudData = legacyDoc.data();
+                console.log("%c Migration: Legacy data located. Shattering into fragments...", "color: #00eaff; font-weight: bold;");
+
+                // Populate local memory first to ensure fragmented push works
+                this.data = { ...this.data, ...cloudData };
+                
+                // CRITICAL: Ensure key collections are present
+                this.data.patients = this.data.patients || [];
+                this.data.appointments = this.data.appointments || [];
+                this.data.finances = this.data.finances || { transactions: [], ledger: {} };
+                
+                this.isPullDone = true;
+                
+                // Shatter into fragments and push to cloud
+                const pushSuccess = await this.triggerCloudSync();
+                if (pushSuccess) {
+                    console.log("Migration: Successfully fragmented legacy data.");
+                    // Mark as migrated locally
+                    this.data.settings.hasMigratedToFragments = true;
+                    this.saveLocal();
+                }
+            } else {
+                console.log("Migration: No legacy data found.");
+                this.isPullDone = true;
+            }
+        } catch (err) {
+            console.error("Migration Failed:", err);
+            this.isPullDone = true;
+        }
+    }
+
+    assembleAndMergeFragments(fragments) {
+        if (!fragments || Object.keys(fragments).length === 0) {
+            this.isSyncing = false;
+            this.updateSyncUI();
+            return;
+        }
+
+        const keys = Object.keys(fragments);
+        console.log(`%c [SyncManager] Reassembling Fragments: ${keys.length} chunks. Keys: [${keys.join(', ')}]`, "color: #00eaff;");
+        
+        const metadata = fragments['metadata'];
+        if (!metadata) {
+            console.warn("[SyncManager] Missing 'metadata' fragment. Attempting generic assembly...");
+            this.isSyncing = false;
+            this.updateSyncUI();
+            // Optional: return if metadata is absolutely essential
+        }
+        if (!metadata) return;
+
+        // Defensive data retrieval
+        const incomingClinics = metadata.clinics || this.data.clinics || [];
+        const incomingUsers = metadata.users || this.data.users || [];
+
+        // Protection: Ignore empty incoming data if local is not empty
+        if (incomingClinics.length === 0 && this.data.clinics.length > 0) return;
+
+        const cloudTime = metadata.updatedAt?.toDate?.()?.getTime() || 0;
+        const lastSyncTime = new Date(this.data.settings?.lastSync || 0).getTime();
+        const lastLocalUpdateTime = new Date(this.data.settings?.lastLocalUpdate || 0).getTime();
+
+        // MERGE CRITERIA: Always prefer Cloud if newer OR if local is effectively standard/empty
+        // FORCE SYNC if patients are empty or if it's a new session
+        const localPatientsCount = this.data.patients?.length || 0;
+        
+        if (this.isNewSession || localPatientsCount === 0 || (cloudTime > lastSyncTime - 1000)) { 
+            console.log("%c [SyncManager] Cloud Observer: Syncing incoming data bits...", "color: #10b981; font-weight: bold;");
+
+            // 1. Rebuild Patients
+            let patients = [];
+            const patientInfo = fragments['patients_info'];
+            if (patientInfo) {
+                for (let i = 0; i < patientInfo.totalChunks; i++) {
+                    const chunk = fragments[`patients_${i}`];
+                    if (chunk && chunk.data) patients.push(...chunk.data);
+                }
+            } else {
+                patients = this.data.patients;
+            }
+
+            // 2. Rebuild Appointments
+            let appointments = [];
+            const apptInfo = fragments['appointments_info'];
+            if (apptInfo) {
+                for (let i = 0; i < apptInfo.totalChunks; i++) {
+                    const chunk = fragments[`appointments_${i}`];
+                    if (chunk && chunk.data) appointments.push(...chunk.data);
+                }
+            } else {
+                appointments = this.data.appointments;
+            }
+
+            // 3. Rebuild patientDocs Fragments
+            let patientDocs = {};
+            const docInfo = fragments['patientdocs_info'];
+            if (docInfo) {
+                for (let i = 0; i < docInfo.totalChunks; i++) {
+                    const chunk = fragments[`patientdocs_${i}`];
+                    if (chunk && chunk.data) {
+                        Object.assign(patientDocs, chunk.data);
+                    }
+                }
+            } else {
+                patientDocs = metadata.patientDocs || this.data.patientDocs || {};
+            }
+
+            // 4. Simple Fragments
+            const finances = fragments['finances'] || this.data.finances;
+            const auditLog = fragments['audit_log']?.data || this.data.auditLog;
+
+            // 5. ATOMIC DEEP CLEANING (Real-time Cloud Guard)
+            const alexId = 'clinic-default';
+            (patients || []).forEach(p => { if (!p.clinicId || p.clinicId === 'undefined') p.clinicId = alexId; });
+            (appointments || []).forEach(a => { if (!a.clinicId || a.clinicId === 'undefined') a.clinicId = alexId; });
+            if (finances.transactions) {
+                finances.transactions.forEach(t => { if (!t.clinicId || t.clinicId === 'undefined') t.clinicId = alexId; });
+            }
+
+            // 6. Update local memory and disk
+            const currentActiveId = metadata.settings?.activeClinicId || this.data?.settings?.activeClinicId || localStorage.getItem('neuro_active_clinic_id');
+
+            this.data = {
+                ...this.data,
+                clinics: incomingClinics.length > 0 ? incomingClinics : this.data.clinics,
+                users: incomingUsers.length > 0 ? incomingUsers : this.data.users,
+                settings: metadata.settings,
+                patients: patients.length > 0 ? patients : this.data.patients,
+                appointments: appointments.length > 0 ? appointments : this.data.appointments,
+                finances,
+                auditLog,
+                patientDocs: Object.keys(patientDocs).length > 0 ? patientDocs : this.data.patientDocs
+            };
+
+            if (currentActiveId) this.data.settings.activeClinicId = currentActiveId;
+            
+            this.data.settings.lastSync = new Date().toISOString();
+            localStorage.setItem(this.DB_KEY, JSON.stringify(this.data));
+            
+            this.cloudStatus = 'online';
+            
+            // UI Update with debouncing to avoid main thread blocking
+            if (this.uiUpdateTimeout) clearTimeout(this.uiUpdateTimeout);
+            this.uiUpdateTimeout = setTimeout(() => {
+                this.notifyDataChanged();
+                this.updateSyncUI();
+            }, 100);
+
+            // REFRESH TRIGGER
+            if (this.isNewSession) {
+                this.isNewSession = false;
+                console.log("%c First session sync successful. Refreshing application state...", "color: #00eaff; font-weight: bold;");
+                setTimeout(() => window.location.reload(), 1000);
+            }
+            
+            if (window.dashboardUI) {
+                window.dashboardUI.updateStats();
+                window.dashboardUI.renderTodayAppointments();
+            }
+            this.recalculatePatientCounter(); // Ensure next code is correct after merge
+        }
+        this.isPullDone = true;
+    }
+
+    recalculatePatientCounter() {
+        if (!this.data.patients) return;
+        
+        const codes = this.data.patients.map(p => {
+            const raw = String(p.patientCode || "");
+            const numericPart = raw.replace(/\D/g, ""); // Remove all non-digits
+            return numericPart ? (parseInt(numericPart) || 0) : 0;
+        });
+        
+        // Safety: ensure we always have at least [100] as a base
+        const validCodes = codes.filter(c => !isNaN(c));
+        const currentMax = Math.max(100, ...validCodes);
+        
+        if (!this.data.settings) this.data.settings = {};
+        this.data.settings.lastPatientCode = isNaN(currentMax) ? 100 : currentMax;
+        
+        console.log(`[SyncManager] Patient counter recalculated: ${this.data.settings.lastPatientCode}`);
     }
 
     // --- Patient Operations (CRUD) ---
@@ -837,12 +592,13 @@ class SyncManager {
             this.saveLocal();
             return this.data.patients[index];
         } else {
-            // New Patient: Increment serial counter
-            this.data.settings.patientCounter = (this.data.settings.patientCounter || 100) + 1;
-            
+            this.recalculatePatientCounter();
+            const nextCode = (this.data.settings.lastPatientCode || 100) + 1;
+            this.data.settings.lastPatientCode = nextCode;
+
             const newPatient = {
                 id: this.generateUUID(),
-                patientCode: this.data.settings.patientCounter,
+                patientCode: nextCode,
                 visits: [],
                 createdAt: now,
                 clinicId: this.data.settings.activeClinicId || 'clinic-default', // Auto-assign active clinic
@@ -997,8 +753,18 @@ class SyncManager {
 
     // --- Clinic Management ---
     getClinics() {
-        // Self-Healing: Ensure Shubrakhit exists whenever clinics are accessed
-        if (this.data.clinics && !this.data.clinics.find(c => c.id === 'clinic-shubrakhit' || c.name === 'شبراخيت')) {
+        // Self-Healing: Ensure default clinic exists if list is empty
+        if (!this.data.clinics || this.data.clinics.length === 0) {
+            this.data.clinics = [{
+                id: 'clinic-default',
+                name: 'الاسكندرية',
+                isActive: true,
+                createdAt: new Date().toISOString(),
+                settings: { currency: 'EGP', timezone: 'Africa/Cairo', workingHours: { start: '09:00', end: '21:00' } }
+            }];
+        }
+        // Self-Healing: Ensure Shubrakhit exists
+        if (!this.data.clinics.find(c => c.id === 'clinic-shubrakhit' || c.name === 'شبراخيت')) {
             this.data.clinics.push({
                 id: 'clinic-shubrakhit',
                 name: 'شبراخيت',
@@ -1006,9 +772,9 @@ class SyncManager {
                 createdAt: new Date().toISOString(),
                 settings: { currency: 'EGP', timezone: 'Africa/Cairo', workingHours: { start: '09:00', end: '21:00' } }
             });
-            this.saveLocal(); // Force Save immediately
+            this.saveLocal();
         }
-        return this.data.clinics || [];
+        return this.data.clinics;
     }
 
     getActiveClinic() {
@@ -1036,7 +802,8 @@ class SyncManager {
             settings: {
                 currency: 'EGP',
                 timezone: 'Africa/Cairo',
-                workingHours: { start: '09:00', end: '21:00' }
+                workingHours: { start: '09:00', end: '21:00' },
+                startingCode: 1000 // Default start for new clinics
             },
             ...clinic
         };
@@ -1134,6 +901,7 @@ class SyncManager {
     }
 
     // --- Cloud Sync ---
+<<<<<<< HEAD
     async triggerCloudSync(forcePushNoGuard = false) {
         if (typeof db === 'undefined' || !db) {
             console.log("Cloud sync: Firebase not initialized.");
@@ -1404,9 +1172,332 @@ class SyncManager {
         } catch (error) {
             console.error("Cloud pull failed:", error);
             this.cloudStatus = 'error';
+=======
+    // --- Cloud Sync: Fragmented Logic ---
+    async triggerCloudSync() {
+        if (typeof db === 'undefined' || !db) return false;
+        if (!this.isPullDone) return false;
+        if (this.isSyncing) {
+            this.hasDirtyData = true; // Ensure we sync again after finish
+            return false;
         }
+
+        this.isSyncing = true;
+        this.hasDirtyData = false; // Reset flag as we are starting a sync
+        this.cloudStatus = 'syncing';
         this.updateSyncUI();
-        return false;
+
+        const startTime = Date.now();
+        console.log("%c [SyncManager] Cloud sync: Executable Fragmented Batch started...", "color: #3b82f6; font-weight: bold;");
+
+        try {
+            const batch = db.batch();
+            const updatedAt = firebase.firestore.FieldValue.serverTimestamp();
+            
+            // Clean data for sync (removes possible base64 bloat)
+            const cleanData = this.getCleanedLocalData();
+
+            // 1. Metadata Fragment (Essential metadata only)
+            const metadata = {
+                clinics: cleanData.clinics,
+                users: cleanData.users,
+                settings: cleanData.settings,
+                updatedAt: updatedAt
+            };
+            batch.set(db.collection('clinic_fragments').doc('metadata'), metadata);
+
+            // 1.5 PatientDocs Fragments (Object logic)
+            const docItems = Object.entries(cleanData.patientDocs || {});
+            const docChunks = [];
+            for (let i = 0; i < docItems.length; i += 50) {
+                const chunk = Object.fromEntries(docItems.slice(i, i + 50));
+                docChunks.push(chunk);
+            }
+            docChunks.forEach((chunk, index) => {
+                batch.set(db.collection('clinic_fragments').doc(`patientdocs_${index}`), {
+                    data: chunk,
+                    updatedAt: updatedAt
+                });
+            });
+            batch.set(db.collection('clinic_fragments').doc('patientdocs_info'), {
+                totalChunks: docChunks.length,
+                updatedAt: updatedAt
+            });
+
+            // 2. Patient Fragments (Chunked by 250 - Optimized balance)
+            const patientChunks = this.chunkArray(cleanData.patients, 250);
+            patientChunks.forEach((chunk, index) => {
+                batch.set(db.collection('clinic_fragments').doc(`patients_${index}`), {
+                    data: chunk,
+                    updatedAt: updatedAt
+                });
+            });
+            batch.set(db.collection('clinic_fragments').doc('patients_info'), {
+                totalChunks: patientChunks.length,
+                totalPatients: cleanData.patients.length,
+                updatedAt: updatedAt
+            });
+
+            // 3. Appointment Fragments (Chunked by 300 - Safety first)
+            const apptChunks = this.chunkArray(cleanData.appointments, 300);
+            apptChunks.forEach((chunk, index) => {
+                batch.set(db.collection('clinic_fragments').doc(`appointments_${index}`), {
+                    data: chunk,
+                    updatedAt: updatedAt
+                });
+            });
+            batch.set(db.collection('clinic_fragments').doc('appointments_info'), {
+                totalChunks: apptChunks.length,
+                updatedAt: updatedAt
+            });
+
+            // 4. Simple Fragments
+            batch.set(db.collection('clinic_fragments').doc('finances'), {
+                ...cleanData.finances,
+                updatedAt: updatedAt
+            });
+
+            // 5. Pruned Audit Log (Last 500)
+            batch.set(db.collection('clinic_fragments').doc('audit_log'), {
+                data: cleanData.auditLog.slice(0, 500),
+                updatedAt: updatedAt
+            });
+
+            // COMMIT with timeout safety
+            await Promise.race([
+                batch.commit(),
+                new Promise((_, reject) => setTimeout(() => reject(new Error("Firebase batch commit timeout")), 30000))
+            ]);
+            
+            // Success
+            this.data.settings.lastSync = new Date().toISOString();
+            localStorage.setItem(this.DB_KEY, JSON.stringify(this.data));
+            
+            this.cloudStatus = 'online';
+            console.log(`%c [SyncManager] Cloud sync: Fragmented batch success (took ${Date.now() - startTime}ms).`, "color: #10b981; font-weight: bold;");
+            return true;
+        } catch (error) {
+            console.error("[SyncManager] Fragmented Cloud Sync Failed:", error);
+            this.cloudStatus = 'error';
+            return false;
+        } finally {
+            this.isSyncing = false;
+            this.updateSyncUI();
+
+            // Bridge Fix: If data became dirty while we were syncing, schedule a follow-up
+            if (this.hasDirtyData) {
+                console.log("%c [SyncManager] Pending changes detected during sync. Scheduling follow-up...", "color: #f59e0b; font-weight: bold;");
+                if (this.syncTimeout) clearTimeout(this.syncTimeout);
+                this.syncTimeout = setTimeout(() => this.triggerCloudSync(), 4000); 
+            }
+        }
+    }
+
+    // --- Core Sync Support Methods ---
+    logAction(user, action, details, meta = null) {
+        if (!this.data.auditLog) this.data.auditLog = [];
+        this.data.auditLog.unshift({
+            timestamp: new Date().toISOString(),
+            user,
+            action,
+            details,
+            meta
+        });
+        // Self-pruning: Keep only last 1000 logs locally
+        if (this.data.auditLog.length > 1000) {
+            this.data.auditLog = this.data.auditLog.slice(0, 1000);
+        }
+    }
+
+    restoreFromCSV(csvContent) {
+        try {
+            const lines = csvContent.split('\n');
+            if (lines.length < 2) return { success: false, error: 'الملف فارغ أو غير صحيح' };
+
+            const patients = this.data.patients || [];
+            let addedCount = 0;
+            const activeClinicId = this.data.settings.activeClinicId || 'clinic-default';
+
+            for (let i = 1; i < lines.length; i++) {
+                const line = lines[i].trim();
+                if (!line) continue;
+                const parts = line.split(',');
+                if (parts.length < 2) continue;
+
+                const name = parts[1]?.trim();
+                if (!name) continue;
+
+                // Avoid duplicates by name
+                if (!patients.some(p => p.name === name)) {
+                    patients.push({
+                        id: crypto.randomUUID(),
+                        patientCode: parts[0]?.trim() || 'NEW',
+                        name: name,
+                        age: parts[2]?.trim() || '',
+                        phone: parts[3]?.trim() || '',
+                        clinicId: activeClinicId,
+                        createdAt: new Date().toISOString(),
+                        lastUpdated: new Date().toISOString()
+                    });
+                    addedCount++;
+                }
+            }
+
+            this.data.patients = patients;
+            this.saveLocal();
+            this.recalculatePatientCounter();
+            this.notifyDataChanged();
+            return { success: true, count: addedCount };
+        } catch (err) {
+            console.error("CSV Restore error:", err);
+            return { success: false, error: err.message };
+        }
+    }
+
+    restoreBackup(jsonString) {
+        try {
+            console.log("[SyncManager] Initiating Restore from JSON string...");
+            const parsed = JSON.parse(jsonString);
+            if (!parsed.patients && !parsed.clinics) {
+                console.error("SyncManager: Invalid backup structure.");
+                return false;
+            }
+            
+            // Critical: Ensure settings exist and mark as dirty for cloud override
+            parsed.settings = parsed.settings || {};
+            parsed.settings.lastLocalUpdate = new Date().toISOString();
+            
+            this.data = parsed;
+            this.saveLocal();
+            
+            // Re-calculate numbering to ensure no overlap
+            this.recalculatePatientCounter();
+            
+            this.notifyDataChanged();
+            console.log("[SyncManager] Restore successful.");
+            return true;
+        } catch (err) {
+            console.error("SyncManager: Backup Restoration Failed:", err);
+            return false;
+        }
+    }
+
+    getBackupJSON() {
+        return JSON.stringify(this.data);
+    }
+
+    getBackupInfo() {
+        return {
+            primaryPath: window.electronAPI ? "D:\\NeuroClinic_Backups (إجباري)" : (this.backupHandle ? "المجلد المرتبط" : "غير محدد"),
+            isEnabled: this.isAutoBackupEnabled,
+            lastBackup: this.data.settings?.lastBackup || 'لم يتم عمل نسخة بعد'
+        };
+    }
+
+    markBackupSuccessful() {
+        this.data.settings.lastBackup = new Date().toISOString();
+        this.saveLocal();
+        window.dispatchEvent(new CustomEvent('backupStatusChanged'));
+    }
+
+    exportPatientsCSV() {
+        if (!this.data.patients || this.data.patients.length === 0) return null;
+        
+        const header = ["كود المريض", "الاسم", "السن", "الهاتف", "آخر زيارة"];
+        const rows = this.data.patients.map(p => {
+            return [
+                `"${p.patientCode || ''}"`,
+                `"${p.name || ''}"`,
+                `"${p.age || ''}"`,
+                `"${p.phone || ''}"`,
+                `"${p.lastUpdated ? new Date(p.lastUpdated).toLocaleDateString('ar-EG') : ''}"`
+            ].join(';');
+        });
+
+        const csvContent = [header.map(h => `"${h}"`).join(';'), ...rows].join('\n');
+        return '\uFEFF' + csvContent;
+    }
+
+    isBackupOverdue() {
+        if (!this.data.settings?.lastBackup) return true;
+        const last = new Date(this.data.settings.lastBackup);
+        const diff = Date.now() - last.getTime();
+        return diff > (24 * 60 * 60 * 1000); // More than 24 hours
+    }
+
+    updateSyncUI() {
+        const latency = this.lastLatency || 0;
+        window.dispatchEvent(new CustomEvent('syncStatusChanged', { detail: { status: this.cloudStatus, latency } }));
+    }
+
+    dispatchSyncStatus(status, latency = 0) {
+        this.cloudStatus = status;
+        this.lastLatency = latency;
+        this.updateSyncUI();
+    }
+
+    /**
+     * Legacy Cloud Pull: Now used for Fragmented Recovery.
+     */
+    async pullFromCloud() {
+        if (typeof db === 'undefined' || !db) return false;
+        if (this.isSyncing) return false;
+        
+        this.isSyncing = true;
+        this.cloudStatus = 'syncing';
+        this.updateSyncUI();
+
+        try {
+            console.log("%c [SyncManager] Manual Cloud Pull: Scanning clinic_fragments...", "color: #3b82f6; font-weight: bold;");
+            // Check fragments collection first
+            const frags = await db.collection('clinic_fragments').get();
+            console.log(`[SyncManager] Query complete. Found ${frags.size} fragment documents.`);
+
+            if (!frags.empty) {
+                const fragmentMap = {};
+                frags.forEach(doc => fragmentMap[doc.id] = doc.data());
+                this.assembleAndMergeFragments(fragmentMap);
+                return true;
+            } else {
+                // Try legacy migration
+                await this.checkAndMigrateLegacyData();
+                return true;
+            }
+        } catch (err) {
+            console.error("[SyncManager] Pull Cloud Failed:", err);
+            this.cloudStatus = 'error';
+            return false;
+        } finally {
+            this.isSyncing = false;
+            this.updateSyncUI();
+>>>>>>> a1c137930acd89620da069c2d01a3103249772bf
+        }
+    }
+
+    // --- Internal Helpers for Fragmented Sync ---
+    chunkArray(array, size) {
+        if (!array) return [];
+        const result = [];
+        for (let i = 0; i < array.length; i += size) {
+            result.push(array.slice(i, i + size));
+        }
+        return result;
+    }
+
+    getCleanedLocalData() {
+        const clean = JSON.parse(JSON.stringify(this.data));
+        // Remove Base64 bloat from documents metadata
+        if (clean.patientDocs) {
+            Object.keys(clean.patientDocs).forEach(pId => {
+                clean.patientDocs[pId].forEach(doc => {
+                    if (doc.fileData && doc.fileData.length > 1000) {
+                        console.warn(`Cleaning base64 bloat from patient ${pId}, doc ${doc.id}`);
+                        doc.fileData = null;
+                    }
+                });
+            });
+        }
+        return clean;
     }
 }
 
