@@ -2270,17 +2270,18 @@ class DashboardUI {
 
                     if (window.syncManager && typeof db !== 'undefined') {
                         const statusMsg = document.createElement('div');
-                        statusMsg.innerHTML = `<div style="text-align:center; padding:15px; color:#00eaff;"><i class="fa-solid fa-sync fa-spin"></i> تم استيراد ${result.count} مريض.. جاري المزامنة مع السحاب...</div>`;
-                        document.querySelector('.neuro-modal-msg').appendChild(statusMsg);
+                        statusMsg.innerHTML = `<div style="text-align:center; padding:15px; color:#00eaff;"><i class="fa-solid fa-sync fa-spin"></i> ${result.message}.. جاري المزامنة مع السحاب...</div>`;
+                        const modalMsg = document.querySelector('.neuro-modal-msg');
+                        if (modalMsg) modalMsg.appendChild(statusMsg);
                         await window.syncManager.triggerCloudSync();
                     }
 
-                    window.showNeuroToast(`تم استيراد ${result.count} مريض بنجاح!`);
+                    window.showNeuroToast(result.message);
                     this.renderPatientsManagement();
                     this.updateStats();
                     return true;
                 } else {
-                    window.showNeuroToast('فشل استيراد الملف. تأكد من الصيغة.', 'error');
+                    window.showNeuroToast(result ? result.message : 'فشل استيراد الملف. تأكد من الصيغة.', 'error');
                     window.soundManager?.playError();
                     return false;
                 }

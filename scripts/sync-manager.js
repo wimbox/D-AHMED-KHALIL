@@ -7,13 +7,14 @@ class SyncManager {
         this.DB_KEY = 'neuro_clinic_data_v1';
         this.data = this.loadLocal();
         this.isNewSession = !localStorage.getItem(this.DB_KEY);
-        
+
         // --- Offline Optimization ---
         // If we have local data, we consider the "initial pull" done from a local perspective 
         // to allow the app to be fully functional immediately even without internet.
-        this.isPullDone = !this.isNewSession; 
-        
+        this.isPullDone = !this.isNewSession;
+
         this.isMigrating = false;
+
         this.isSyncing = false;
         this.cloudStatus = window.navigator.onLine ? 'online' : 'offline';
         this.lastLatency = 0;
@@ -82,13 +83,13 @@ class SyncManager {
 
     saveLocal() {
         this.data.settings.lastLocalUpdate = new Date().toISOString();
-        try { localStorage.setItem(this.DB_KEY, JSON.stringify(this.data)); } catch (e) {}
-        
+        try { localStorage.setItem(this.DB_KEY, JSON.stringify(this.data)); } catch (e) { }
+
         if (this.syncTimeout) clearTimeout(this.syncTimeout);
         this.syncTimeout = setTimeout(async () => {
             this.recalculatePatientCounter();
             await this.triggerCloudSync();
-        }, 400); 
+        }, 400);
     }
 
     logAction(user, action, details, meta = null) {
@@ -104,14 +105,14 @@ class SyncManager {
     getAppointments() { return this.data.appointments || []; }
     getLogs() { return this.data.auditLog || []; }
     getClinics() { return this.data.clinics || []; }
-    getActiveClinic() { 
+    getActiveClinic() {
         const id = (this.data.settings && this.data.settings.activeClinicId) || 'clinic-default';
         return this.getClinics().find(c => c.id === id) || this.getClinics()[0] || { id: 'clinic-default', name: 'الاسكندرية' };
     }
-    setActiveClinic(id) { 
-        this.data.settings.activeClinicId = id; 
-        this.saveLocal(); 
-        return true; 
+    setActiveClinic(id) {
+        this.data.settings.activeClinicId = id;
+        this.saveLocal();
+        return true;
     }
 
     // --- Backup & UI Stability Helpers ---
@@ -129,7 +130,7 @@ class SyncManager {
     }
 
     saveHandleToDB(handle) { this.savedHandleProxy = handle; this.saveLocal(); }
-    
+
     masterFactoryReset() {
         const alexId = 'clinic-default';
         this.data = {
@@ -144,8 +145,104 @@ class SyncManager {
         return true;
     }
 
+    deletePatient(patientId) {
+        const currentUser = window.authManager?.currentUser?.username || 'System';
+        const patient = this.data.patients.find(p => p.id === patientId);
+        if (!patient) return false;
+
+        // 1. Remove Patient
+        this.data.patients = this.data.patients.filter(p => p.id !== patientId);
+
+        // 2. Remove associated appointments
+        this.data.appointments = this.data.appointments.filter(a => a.patientId !== patientId);
+
+        this.logAction(currentUser, 'DELETE_PATIENT', `حذف مريض: ${patient.name} (#${patient.patientCode})`);
+        this.saveLocal();
+        return true;
+    }
+
     restoreFromCSV(content) {
-        return { success: false, message: "CSV Import stub." };
+        try {
+            if (!content) return { success: false, message: "محتوى الملف فارغ" };
+            
+            // Handle BOM and normalize line endings
+            const rawLines = content.replace(/\uFEFF/g, '').split(/\r?\n/).filter(line => line.trim().length > 0);
+            if (rawLines.length === 0) return { success: false, message: "الملف لا يحتوي على بيانات" };
+
+            // 1. Detect Delimiter (Commonly , or ; in Excel)
+            let delimiter = ',';
+            if (rawLines[0].includes(';') && !rawLines[0].includes(',')) delimiter = ';';
+            
+            const lines = rawLines.map(l => l.split(new RegExp(`${delimiter}(?=(?:(?:[^"]*"){2})*[^"]*$)`)).map(c => c.trim().replace(/"/g, '')));
+
+            // 2. Find column indices
+            const headerRow = lines[0];
+            let idxName = headerRow.findIndex(h => /الاسم|name/i.test(h));
+            let idxPhone = headerRow.findIndex(h => /هاتف|phone|موبايل/i.test(h));
+            let idxAge = headerRow.findIndex(h => /عمر|age/i.test(h));
+            let idxGender = headerRow.findIndex(h => /نوع|gender/i.test(h));
+            let idxNotes = headerRow.findIndex(h => /ملاحظات|notes/i.test(h));
+
+            let startFrom = 1;
+
+            // 3. Fallback: If no headers found, try "Smart Guess" for files without headers
+            if (idxName === -1) {
+                // If the first row looks like data (e.g. column 0 is a number and column 1 is text), assume standard order
+                const firstColIsNumber = !isNaN(parseInt(headerRow[0]));
+                const secondColIsText = headerRow[1] && headerRow[1].length > 2;
+                
+                if (firstColIsNumber && secondColIsText) {
+                    idxName = 1;
+                    idxAge = 2;
+                    idxPhone = 3;
+                    idxGender = 4;
+                    idxNotes = 6;
+                    startFrom = 0; // The first row IS data
+                } else if (secondColIsText) {
+                    // Maybe index 0 is Name
+                    idxName = 0;
+                    startFrom = 0;
+                }
+            }
+
+            if (idxName === -1) return { success: false, message: "لم يتم العثور على عمود 'الاسم'. تأكد أن الملف يحتوي على عناوين للأعمدة." };
+
+            let importedCount = 0;
+            const currentUser = window.authManager?.currentUser?.username || 'System';
+
+            for (let i = startFrom; i < lines.length; i++) {
+                const row = lines[i];
+                if (!row || row.length <= Math.max(idxName, 0)) continue;
+
+                const name = row[idxName];
+                if (!name || name.length < 2) continue;
+
+                const phone = idxPhone !== -1 ? (row[idxPhone] || '') : '';
+                const age = idxAge !== -1 ? (row[idxAge] || '') : '';
+                const gender = idxGender !== -1 ? (row[idxGender] || 'ذكر') : 'ذكر';
+                const notes = idxNotes !== -1 ? (row[idxNotes] || '') : '';
+
+                // Prevent duplicates
+                const exists = this.data.patients.find(p => p.name === name && (phone ? p.phone === phone : true));
+                if (!exists) {
+                    this.upsertPatient({
+                        name: name,
+                        phone: phone,
+                        age: age,
+                        gender: gender,
+                        permanentNotes: notes
+                    });
+                    importedCount++;
+                }
+            }
+
+            this.logAction(currentUser, 'IMPORT_CSV', `استيراد ${importedCount} مريض من ملف CSV`);
+            this.saveLocal();
+            return { success: true, count: importedCount, message: `تم استيراد ${importedCount} مريض بنجاح` };
+        } catch (err) {
+            console.error("restoreFromCSV Error:", err);
+            return { success: false, message: "خطأ في قراءة محتوى الملف: " + err.message };
+        }
     }
 
     // --- Cloud Sync Engine ---
@@ -191,7 +288,7 @@ class SyncManager {
 
         const cloudUpdate = metadata.updatedAt?.toDate?.()?.getTime() || 0;
         const lastSync = new Date(this.data.settings?.lastSync || 0).getTime();
-        
+
         if (!this.isNewSession && this.data.patients.length > 0 && (cloudUpdate <= lastSync + 200)) return;
 
         let patients = [];
@@ -214,7 +311,7 @@ class SyncManager {
 
         const finances = fragments['finances'] || this.data.finances || { transactions: [], ledger: {} };
         const auditLog = fragments['audit_log']?.data || this.data.auditLog || [];
-        
+
         const alexId = 'clinic-default';
         (patients || []).forEach(p => { if (!p.clinicId || p.clinicId === 'undefined') p.clinicId = alexId; });
         (appointments || []).forEach(a => { if (!a.clinicId || a.clinicId === 'undefined') a.clinicId = alexId; });
@@ -234,7 +331,7 @@ class SyncManager {
         localStorage.setItem(this.DB_KEY, JSON.stringify(this.data));
         this.cloudStatus = 'online';
         this.isNewSession = false;
-        
+
         this.notifyDataChanged();
         this.updateSyncUI();
     }
@@ -259,12 +356,12 @@ class SyncManager {
             this.recalculatePatientCounter();
             const nextCode = (this.data.settings.lastPatientCode || 100) + 1;
             this.data.settings.lastPatientCode = nextCode;
-            const newPatient = { 
-                id: crypto.randomUUID(), 
-                patientCode: nextCode, 
-                createdAt: new Date().toISOString(), 
+            const newPatient = {
+                id: crypto.randomUUID(),
+                patientCode: nextCode,
+                createdAt: new Date().toISOString(),
                 clinicId: this.data.settings.activeClinicId,
-                ...patient 
+                ...patient
             };
             this.data.patients.push(newPatient);
             this.logAction(currentUser, 'ADD_PATIENT', `إضافة مريض: ${patient.name} (#${nextCode})`);
@@ -365,6 +462,63 @@ class SyncManager {
     isBackupOverdue() {
         if (!this.data.settings.lastBackup) return true;
         return (new Date().getTime() - new Date(this.data.settings.lastBackup).getTime()) > (24 * 60 * 60 * 1000);
+    }
+
+    // --- Export Logic ---
+    exportPatientsCSV() {
+        if (!this.data.patients || this.data.patients.length === 0) return null;
+
+        // UTF-8 BOM for Excel Arabic support
+        let csvContent = "\uFEFF";
+        
+        // Headers
+        const headers = ["الكود", "الاسم", "العمر", "رقم الهاتف", "النوع", "تاريخ الإضافة", "ملاحظات"];
+        csvContent += headers.join(",") + "\n";
+
+        // Rows
+        this.data.patients.forEach(p => {
+            const row = [
+                p.patientCode || '---',
+                `"${(p.name || '').replace(/"/g, '""')}"`,
+                `"${(p.age || '').replace(/"/g, '""')}"`,
+                `"${(p.phone || '').replace(/"/g, '""')}"`,
+                p.gender || 'غير محدد',
+                p.createdAt ? new Date(p.createdAt).toLocaleDateString('ar-EG') : '---',
+                `"${(p.permanentNotes || '').replace(/"/g, '""')}"`
+            ];
+            csvContent += row.join(",") + "\n";
+        });
+
+        return csvContent;
+    }
+
+    // --- JSON Backup Helpers ---
+    getBackupJSON() {
+        return JSON.stringify(this.data, null, 2);
+    }
+
+    markBackupSuccessful() {
+        if (!this.data.settings) this.data.settings = {};
+        this.data.settings.lastBackup = new Date().toISOString();
+        this.saveLocal();
+    }
+
+    restoreBackup(content) {
+        try {
+            const parsed = JSON.parse(content);
+            if (typeof parsed !== 'object' || !parsed.patients) {
+                console.error("Invalid backup format: Missing core data.");
+                return false;
+            }
+
+            // Replace full data
+            this.data = parsed;
+            localStorage.setItem(this.DB_KEY, JSON.stringify(this.data));
+            return true;
+        } catch (err) {
+            console.error("Restore Backup Failed:", err);
+            return false;
+        }
     }
 }
 
