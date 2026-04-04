@@ -82,6 +82,7 @@ class SyncManager {
     }
 
     saveLocal() {
+        this.recalculateAllLedgers();
         this.data.settings.lastLocalUpdate = new Date().toISOString();
         try { localStorage.setItem(this.DB_KEY, JSON.stringify(this.data)); } catch (e) { }
 
@@ -90,6 +91,23 @@ class SyncManager {
             this.recalculatePatientCounter();
             await this.triggerCloudSync();
         }, 400);
+    }
+
+    recalculateAllLedgers() {
+        if (!this.data.finances) this.data.finances = { transactions: [], ledger: {} };
+        this.data.finances.ledger = {}; // Reset
+        
+        const txs = this.data.finances.transactions || [];
+        txs.forEach(t => {
+            if (t.patientId) {
+                if (!this.data.finances.ledger[t.patientId]) {
+                    this.data.finances.ledger[t.patientId] = { balance: 0, history: [] };
+                }
+                const amt = parseFloat(t.amount) || 0;
+                if (t.type === 'income') this.data.finances.ledger[t.patientId].balance += amt;
+                else this.data.finances.ledger[t.patientId].balance -= amt;
+            }
+        });
     }
 
     logAction(user, action, details, meta = null) {
@@ -381,6 +399,82 @@ class SyncManager {
         return (this.data.appointments || []).filter(a => (target === alexId) ? (!a.clinicId || a.clinicId === target) : a.clinicId === target);
     }
     getTransactionsByClinic() { return this.data.finances?.transactions || []; }
+    getFinances() { return this.data.finances?.transactions || []; }
+
+    addTransaction(tx) {
+        if (!this.data.finances) this.data.finances = { transactions: [], ledger: {} };
+        if (!this.data.finances.transactions) this.data.finances.transactions = [];
+
+        const newTx = {
+            id: tx.id || crypto.randomUUID(),
+            date: tx.date || new Date().toISOString(),
+            ...tx
+        };
+
+        this.data.finances.transactions.unshift(newTx);
+        
+        // Update Ledger if Patient is involved
+        if (newTx.patientId) {
+            this.updatePatientLedgerBalance(newTx.patientId);
+        }
+
+        const currentUser = window.authManager?.currentUser?.username || 'System';
+        this.logAction(currentUser, 'ADD_TRANSACTION', `إضافة سجل مالي: ${newTx.description} (${newTx.amount} EGP)`);
+        
+        this.saveLocal();
+        return newTx;
+    }
+
+    updatePatientLedgerBalance(patientId) {
+        if (!this.data.finances.ledger) this.data.finances.ledger = {};
+        
+        const txs = this.data.finances.transactions.filter(t => t.patientId === patientId);
+        let balance = 0;
+        txs.forEach(t => {
+            const amt = parseFloat(t.amount) || 0;
+            if (t.type === 'income') balance += amt;
+            else balance -= amt;
+        });
+
+        this.data.finances.ledger[patientId] = {
+            balance: balance,
+            lastUpdate: new Date().toISOString()
+        };
+    }
+
+    // --- Clinic Management ---
+    addClinic(clinic) {
+        const newClinic = {
+            id: crypto.randomUUID(),
+            createdAt: new Date().toISOString(),
+            isActive: true,
+            ...clinic
+        };
+        this.data.clinics.push(newClinic);
+        this.saveLocal();
+        return newClinic;
+    }
+
+    updateClinic(id, data) {
+        const idx = this.data.clinics.findIndex(c => c.id === id);
+        if (idx > -1) {
+            this.data.clinics[idx] = { ...this.data.clinics[idx], ...data, updatedAt: new Date().toISOString() };
+            this.saveLocal();
+            return true;
+        }
+        return false;
+    }
+
+    deleteClinic(id) {
+        // Safety: Don't delete clinics with data
+        const hasPatients = this.data.patients.some(p => p.clinicId === id);
+        const hasApps = this.data.appointments.some(a => a.clinicId === id);
+        if (hasPatients || hasApps) return { success: false, error: 'has_data' };
+
+        this.data.clinics = this.data.clinics.filter(c => c.id !== id);
+        this.saveLocal();
+        return { success: true };
+    }
 
     async triggerCloudSync() {
         if (!window.navigator.onLine) {
